@@ -251,3 +251,44 @@ th.sticky-col{z-index:3;background:var(--surface-2)}
 .danger-text{color:var(--bad)}
 .hidden-sm{display:initial}
 @media (max-width:700px){.hidden-sm{display:none}}
+
+/* dense tables (holes register, timesheet): tighter cells, headers stay put while the wrapper scrolls */
+.tablewrap.tall{max-height:calc(100vh - 250px);min-height:300px}
+table.dense{font-size:12px}
+table.dense th,table.dense td{padding:3px 6px}
+table.dense th{font-size:10.5px}
+table.dense .chip.sm{padding:0 6px;font-size:10.5px}
+table.dense .pill{font-size:10.5px;padding:0 6px}
+table.dense .vibe{font-size:11.5px}
+table.dense td.wrap-text{min-width:160px;max-width:300px;line-height:1.3}
+table.dense td.edit input,table.dense td.edit select{width:100%;padding:1px 4px;font-size:12px;border-radius:3px}
+table.holes td.open{cursor:pointer}
+table.holes td.open:hover b{text-decoration:underline}
+table.holes tr.newrow td{background:var(--edit);border-bottom:2px solid var(--edit-line)}
+table.holes tr.newrow input,table.holes tr.newrow select{padding:2px 5px;font-size:12px;min-width:56px}
+.tiles.big .tile .l{font-size:14px;font-weight:600;color:var(--fg)}
+.tiles.big .tile .v{font-size:30px}
+
+/* timesheet: fixed column widths so a cell does not grow while it is edited; night row first */
+.ts{table-layout:fixed;width:max-content;min-width:100%}
+.ts td,.ts th{overflow:hidden;text-overflow:ellipsis}
+.ts td.hole{min-width:0}
+.ts thead tr.h1 th{height:26px}
+.ts thead tr.h2 th{top:26px}
+.ts tr.first td{border-top:2px solid var(--line)}
+.ts td.sticky-col .daytot{font-weight:700;font-variant-numeric:tabular-nums}
+.ts td.sticky-col .daytot.zero{color:var(--muted-2);font-weight:400}
+.ts td.edit input{width:100%;padding:1px 3px;font-size:12px;border-radius:3px;min-width:0}
+.ts td .btn.xs{padding:0 4px}
+
+/* vibe check export: print only the sheet */
+@media print{
+  body.print-sheet main > *{display:none!important}
+  body.print-sheet #view-holes{display:flex!important}
+  body.print-sheet #view-holes > *:not(#hTable){display:none!important}
+  body.print-sheet .tablewrap{max-height:none;overflow:visible;border:0}
+  body.print-sheet .tile{break-inside:avoid}
+}
+table.dense td.wrap-text{max-width:260px}
+table.dense td.wrap-text .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+table.dense td.wrap-text.edit{cursor:text}

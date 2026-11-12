@@ -1,5 +1,5 @@
 /* mgmdrill map view.
-   - Leaflet map (Esri imagery or OpenStreetMap base) of the selected project's live collars.
+   - Leaflet map (Esri imagery) of the selected project's live collars.
    - Collars come from App.projectHoles(); coordinates are NAD83 / UTM 17N (EPSG:26917) and are
      converted to WGS84 here with the inverse Transverse Mercator series (GRS80, no proj library).
    - Planned traces: straight line from the collar along the azimuth, horizontal length = depth x cos(dip).
@@ -11,7 +11,7 @@
 (() => {
 "use strict";
 const { $, esc } = App;
-const LS_KEY = "mgmdrill.map.layers", LS_BASE = "mgmdrill.map.base", LABEL_ZOOM = 15;
+const LS_KEY = "mgmdrill.map.layers", LABEL_ZOOM = 15;
 const GROUPS = [
   { key: "plan",   label: "Planned / Spotted / Cut", statuses: ["Permit Pending", "Planned", "Flagged", "Cut", "Spotted"], color: "Planned" },
   { key: "prog",   label: "In Progress", statuses: ["In Progress"], color: "In Progress" },
@@ -45,14 +45,13 @@ function traceLL(h, depth){
 const hasXY = h => h && h.easting != null && h.northing != null && !isNaN(h.easting) && !isNaN(h.northing);
 
 /* ---------- state (module scope, survives every render) ---------- */
-let built = false, map = null, bases = {}, base = "img";
+let built = false, map = null, bases = {};
 const groups = {};              // key -> { collars, labels, traces } layerGroups
 const markers = new Map();      // hole id -> marker
 const db = {};                  // map_layers id -> { row, layer }
 let layersPromise = null, sig = "", fitted = false, lastProject = null;
 let vis = {};
 try { vis = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (e) { vis = {}; }
-try { base = localStorage.getItem(LS_BASE) === "osm" ? "osm" : "img"; } catch (e) {}
 const isOn = (k, dflt = true) => (k in vis) ? !!vis[k] : dflt;
 const saveVis = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(vis)); } catch (e) {} };
 
@@ -65,22 +64,18 @@ function build(){
         <input id="mSearch" type="search" placeholder="Find hole…" list="mHoles" style="width:170px" autocomplete="off"><datalist id="mHoles"></datalist>
         <button class="btn sm" id="mFitHoles">Fit to holes</button>
         <button class="btn sm" id="mFitProp">Fit to property</button>
-        <span class="sep"></span>
-        <div class="seg" id="mBase"><button data-b="img">Imagery</button><button data-b="osm">Street</button></div>
       </div></div>
-    <div class="tiles" id="mTiles"></div>
+    <div class="tiles big" id="mTiles"></div>
     <div class="maplegend" id="mLyr"></div>
     <div id="map"></div>
     <div class="legend" id="mLegend"></div>`;
   map = L.map("map", { zoomControl: true }).setView([49.49, -78.35], 12);
   bases.img = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, attribution: "Esri, Maxar, Earthstar Geographics" });
-  bases.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" });
-  bases[base].addTo(map);
+  bases.img.addTo(map);
   for (const g of GROUPS) groups[g.key] = { collars: L.layerGroup(), labels: L.layerGroup(), traces: L.layerGroup() };
   map.on("zoomend", applyVisibility);
   map.on("popupopen", e => { const b = e.popup.getElement()?.querySelector("[data-hole]"); if (b) b.onclick = () => App.openHole(b.dataset.hole); });
 
-  $("#mBase").onclick = e => { const b = e.target.closest("[data-b]"); if (b) setBase(b.dataset.b); };
   $("#mFitHoles").onclick = () => fitHoles(true);
   $("#mFitProp").onclick = () => fitProperty(true);
   const s = $("#mSearch");
@@ -88,15 +83,8 @@ function build(){
   s.onchange = () => { const v = s.value.trim().toLowerCase(); if (v && App.projectHoles().some(h => [h.ddh_name, h.planned_name].some(n => (n || "").toLowerCase() === v))) findHole(v); };
   $("#mLyr").onchange = e => { const c = e.target.closest("input[data-k]"); if (!c) return; vis[c.dataset.k] = c.checked; saveVis(); applyVisibility(); };
   $("#mLegend").innerHTML = App.STATUSES.map(s => `<span><i style="background:${App.STATUS_HEX[s]}"></i>${esc(s)}</span>`).join("")
-    + `<span><i style="background:#898781;outline:2px solid #d7b973;outline-offset:1px"></i>Flagged hole</span>`
     + `<span>– – planned trace · ── drilled</span><span class="muted">Labels show at zoom ${LABEL_ZOOM}+</span>`;
   built = true;
-}
-function setBase(b){
-  if (!bases[b]) return;
-  base = b; try { localStorage.setItem(LS_BASE, b); } catch (e) {}
-  for (const k of Object.keys(bases)) { if (k === b) { if (!map.hasLayer(bases[k])) bases[k].addTo(map).bringToBack(); } else map.removeLayer(bases[k]); }
-  document.querySelectorAll("#mBase [data-b]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.b === b)));
 }
 
 /* ---------- collars, labels, traces ---------- */
@@ -107,7 +95,7 @@ function tipHtml(h){
 }
 function popupHtml(h){
   const rig = App.rig(h.rig_id);
-  return `<b>${esc(App.holeLabel(h))}</b> ${App.pill(h.status)}${App.isFlagged(h) ? ' <span class="flag">⚑</span>' : ""}
+  return `<b>${esc(App.holeLabel(h))}</b> ${App.pill(h.status)}
     <div>${h.planned_name && h.ddh_name ? esc(h.planned_name) + " · " : ""}${esc(h.zone || "–")}</div>
     <div>${App.fmt.m(App.holeDepth(h))} of ${App.fmt.m(h.planned_depth)} · Az ${App.fmt.n(h.azimuth)}° / ${App.fmt.n(h.dip)}°</div>
     ${rig ? `<div>${esc(rig.label)}</div>` : ""}<div style="margin-top:6px"><button class="btn xs" data-hole="${esc(h.id)}">Open hole card</button></div>`;
@@ -115,13 +103,13 @@ function popupHtml(h){
 function buildCollars(){
   const holes = holesWithXY();
   const next = App.project + "|" + JSON.stringify(holes.map(h => [h.id, h.status, h.easting, h.northing, h.azimuth, h.dip, h.planned_depth,
-    App.holeDepth(h), App.isFlagged(h), h.ddh_name, h.planned_name, h.zone, h.rig_id]));
+    App.holeDepth(h), h.ddh_name, h.planned_name, h.zone, h.rig_id]));
   if (next === sig) return;
   sig = next; markers.clear();
   for (const g of Object.values(groups)) { g.collars.clearLayers(); g.labels.clearLayers(); g.traces.clearLayers(); }
   for (const h of holes) {
     const ll = utmToLatLng(Number(h.easting), Number(h.northing)), col = App.STATUS_HEX[h.status] || "#898781", g = groups[groupOf(h.status)];
-    const outline = App.isFlagged(h) ? "outline:2px solid #d7b973;outline-offset:1px;" : "";
+    const outline = "";
     const icon = L.divIcon({ className: "", iconSize: [12, 12], iconAnchor: [6, 6], html: `<div class="collar ${App.statusClass(h.status)}" style="background:${col};${outline}"></div>` });
     const m = L.marker(ll, { icon, title: App.holeLabel(h), riseOnHover: true }).bindTooltip(tipHtml(h), { direction: "top", offset: [0, -8] });
     m.on("click", () => App.openHole(h.id));
@@ -228,7 +216,6 @@ function focus(holeId){
 function render(){
   if (!built) build();
   if (lastProject !== App.project) { lastProject = App.project; fitted = false; }
-  setBase(base);
   renderTiles();
   buildCollars();
   renderLyr();

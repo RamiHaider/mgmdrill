@@ -237,7 +237,7 @@ App.drawer.refresh = function(){
   if (d.kind === "hole") {
     const h = App.hole(d.id); if (!h) return App.closeDrawer();
     const depth = App.holeDepth(h), drilled = App.holeDrilled(h), rig = App.rig(h.rig_id);
-    $("#drawerTitle").innerHTML = `${esc(App.holeLabel(h))} ${App.pill(h.status)} ${App.isFlagged(h) ? '<span class="flag" title="Flagged">⚑</span>' : ""}`;
+    $("#drawerTitle").innerHTML = `${esc(App.holeLabel(h))} ${App.pill(h.status)}`;
     const pct = h.planned_depth ? Math.min(1, (depth || 0) / h.planned_depth) : 0;
     el.innerHTML = `
       <dl class="kv">
