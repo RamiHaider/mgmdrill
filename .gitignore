@@ -1,0 +1,6 @@
+# Confidential: collars, results and GIS exports never go in the public repo
+private/
+supabase/seed/*.sql
+supabase/seed/*.geojson
+*.xlsx
+.env

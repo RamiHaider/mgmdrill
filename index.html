@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MGM Drill Tracker</title>
+<link rel="icon" type="image/png" href="assets/leaf.png">
+<meta name="theme-color" content="#121212">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap">
+<style>
+:root{--gold:#d7b973;--bg:#0d0d0d;--fg:#f5f1e6;--muted:#b9b3a4}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:"Lato",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:18px;text-align:center}
+h1{margin:0;font-size:clamp(20px,4vw,34px);letter-spacing:.08em;text-transform:uppercase}
+h1 small{display:block;font-size:.45em;letter-spacing:.3em;color:var(--gold);margin-top:6px}
+figure{margin:0;max-width:720px;width:100%}
+img{width:100%;height:auto;border-radius:14px;border:3px solid var(--gold);box-shadow:0 20px 60px rgba(215,185,115,.25)}
+figcaption{margin-top:12px;font-size:15px;color:var(--muted);line-height:1.5}
+figcaption b{color:var(--gold)}
+.ticker{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--gold);border:1px solid #3b3732;border-radius:8px;padding:8px 14px;background:#161513}
+.ok{color:#4fb87f;font-weight:700}
+footer{font-size:12px;color:#6a6457}
+</style>
+</head>
+<body>
+<h1>MGM Drill Tracker <small>mgmdrill.com · deployment test</small></h1>
+<figure>
+  <img src="assets/hero.png" alt="A smiling exploration manager with crossed arms, core boxes, a map, and a Bitcoin logo glowing in the sunset.">
+  <figcaption>Daily drilling report, Day 1: <b>5 rigs turning, 189 m drilled, 1 Bitcoin found in the MICH horizon.</b><br>
+  Geology: chloritized tuff with trace blockchain. Vibe check: <b>Mortgage your house.</b></figcaption>
+</figure>
+<div class="ticker">GitHub Pages <span class="ok">✔</span> &nbsp;·&nbsp; custom domain <span id="dom">…</span> &nbsp;·&nbsp; HTTPS <span id="ssl">…</span></div>
+<footer>If you can read this, the plumbing works. The real tracker replaces this page.</footer>
+<script>
+document.getElementById("dom").innerHTML = location.hostname === "mgmdrill.com" ? '<span class="ok">✔</span>' : location.hostname;
+document.getElementById("ssl").innerHTML = location.protocol === "https:" ? '<span class="ok">✔</span>' : "no";
+</script>
+</body>
+</html>
