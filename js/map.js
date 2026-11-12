@@ -70,7 +70,7 @@ function build(){
     <div id="map"></div>
     <div class="legend" id="mLegend"></div>`;
   map = L.map("map", { zoomControl: true }).setView([49.49, -78.35], 12);
-  bases.img = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, attribution: "Esri, Maxar, Earthstar Geographics" });
+  bases.img = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, opacity: .82, attribution: "Esri, Maxar, Earthstar Geographics" });
   bases.img.addTo(map);
   for (const g of GROUPS) groups[g.key] = { collars: L.layerGroup(), labels: L.layerGroup(), traces: L.layerGroup() };
   map.on("zoomend", applyVisibility);
@@ -117,7 +117,7 @@ function buildCollars(){
     g.labels.addLayer(L.tooltip({ permanent: true, direction: "right", offset: [8, 0], className: "collar-label", interactive: false }).setLatLng(ll).setContent(esc(App.holeLabel(h))));
     // trace: Complete uses actual depth when known, otherwise the planned length
     const planned = Number(h.planned_depth) || 0, depth = App.holeDepth(h);
-    const style = { color: "#000000", weight: 1, opacity: .95, interactive: false }; // pencil-thin black, solid (Rami, 12 Nov)
+    const style = { color: "#8a8a8a", weight: 1.6, opacity: .95, interactive: false }; // thin solid grey (Rami, 12 Nov)
     if (h.status === "In Progress") {
       const d = Math.min(depth || 0, planned || depth || 0);
       if (d > 0) g.traces.addLayer(L.polyline([ll, traceLL(h, d)], style));

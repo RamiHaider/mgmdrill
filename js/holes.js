@@ -11,13 +11,13 @@ const state = {
   status: new Set(JSON.parse(localStorage.getItem(LS("status")) || "null") || ["Spotted", "In Progress", "Complete", "Cut", "Planned", "Permit Pending"]),
   sort: JSON.parse(localStorage.getItem(LS("sort")) || "null") || { key: "ddh_name", dir: -1 },
   mode: localStorage.getItem(LS("mode")) || "register",
-  adding: false, editing: null, ordering: null, cell: null,
+  adding: false, editing: null, ordering: null, cell: null, archived: false,
 };
 const QUEUE_OK = new Set(["Permit Pending", "Planned", "Flagged", "Cut", "Spotted"]);
 const COLS = [
   ["project_id", "Project"], ["planned_name", "Planned ID"], ["ddh_name", "DDH"], ["zone", "Zone"], ["status", "Status"], ["rig", "Rig"], ["order", "Order"],
   ["azimuth", "Az"], ["dip", "Dip"], ["planned_depth", "Planned"], ["start_length", "Start"], ["depth", "Current"], ["final_depth", "Final"], ["n_samples", "Samples"],
-  ["vibe", "Vibe"], ["start_date", "Started"], ["end_date", "Ended"], ["objective", "Objective"], ["result", "Result"],
+  ["vibe", "Vibe"], ["start_date", "Started"], ["end_date", "Ended"], ["objective", "Objective"], ["result", "Result"], ["remove", ""],
 ];
 const NUM = new Set(["azimuth", "dip", "planned_depth", "start_length", "depth", "final_depth", "n_samples", "order"]);
 const SORTS = [["ddh_name", "DDH, newest first"], ["planned_name", "Planned ID"], ["zone", "Zone / target"], ["status", "Status"], ["order", "Rig and queue order"], ["vibe", "Vibe, best first"], ["start_date", "Start date, newest"], ["depth", "Current depth"]];
@@ -64,7 +64,7 @@ function sorted(list){
     return String(x).localeCompare(String(y), undefined, { numeric: true }) * dir;
   });
 }
-const allHoles = () => App.data.holes.filter(h => !h.archived && (!state.proj || h.project_id === state.proj));
+const allHoles = () => App.data.holes.filter(h => h.archived === state.archived && (!state.proj || h.project_id === state.proj));
 function filtered(){
   const q = state.q.toLowerCase();
   return allHoles().filter(h => state.status.has(h.status) && (!state.zone || h.zone === state.zone) && (!state.rig || rigOf(h)?.id === state.rig) &&
@@ -94,6 +94,7 @@ function render(){
       <select id="hRig" style="max-width:130px"><option value="">All rigs</option>${rigs.map(r => `<option value="${esc(r.id)}" ${state.rig === r.id ? "selected" : ""}>${esc(r.label)}</option>`).join("")}</select>
       <label class="row small muted" style="gap:4px">Order by <select id="hSort" style="width:auto">${SORTS.map(([k, l]) => `<option value="${k}" ${state.sort.key === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <input id="hQ" type="search" placeholder="Search…" value="${esc(state.q)}" style="max-width:200px">
+      <label class="lyr small" title="Removed holes are kept here and can be restored"><input type="checkbox" id="hArch" ${state.archived ? "checked" : ""}> removed</label>
       <div class="chips" ${state.mode === "vibe" ? "hidden" : ""}>${App.STATUSES.filter(s => counts[s]).map(s => `<button class="chip toggle sm" data-st="${esc(s)}" aria-pressed="${state.status.has(s)}" style="--c:${App.STATUS_HEX[s]}"><i></i>${esc(s)} ${counts[s]}</button>`).join("")}</div>
     </div>
     <div id="hEditor"></div>
@@ -104,6 +105,7 @@ function render(){
   $("#hZone").onchange = e => { state.zone = e.target.value; renderTable(); };
   $("#hRig").onchange = e => { state.rig = e.target.value; renderTable(); };
   $("#hSort").onchange = e => { setSort(e.target.value, true); };
+  $("#hArch").onchange = e => { state.archived = e.target.checked; render(); };
   $$("[data-st]", el).forEach(b => b.onclick = () => { const s = b.dataset.st; state.status.has(s) ? state.status.delete(s) : state.status.add(s); localStorage.setItem(LS("status"), JSON.stringify([...state.status])); render(); });
   const add = $("#hAdd"); if (add) add.onclick = () => { state.adding = !state.adding; render(); if (state.adding) $("#nPlanned")?.focus(); };
   const pdf = $("#vPdf"); if (pdf) pdf.onclick = exportPdf;
@@ -122,7 +124,7 @@ function setSort(key, fromMenu){
 /* ---- register table ---- */
 function registerHtml(list){
   const { key, dir } = state.sort;
-  const head = COLS.map(([k, l]) => `<th class="sort ${NUM.has(k) ? "num" : ""} ${k === "project_id" ? "sticky-col" : ""}" data-sort="${k}">${l}${key === k ? `<span class="arrow">${dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
+  const head = COLS.map(([k, l]) => k === "remove" ? "<th></th>" : `<th class="sort ${NUM.has(k) ? "num" : ""} ${k === "project_id" ? "sticky-col" : ""}" data-sort="${k}">${l}${key === k ? `<span class="arrow">${dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
   return `<div class="tablewrap tall" id="hTable"><table class="dense holes"><thead><tr>${head}</tr></thead>
     <tbody>${state.adding && App.canEdit ? newRowHtml() : ""}${list.map(rowHtml).join("") || `<tr><td colspan="${COLS.length}" class="empty">No holes match.</td></tr>`}</tbody></table></div>
     <p class="note">Click a DDH or planned ID for the hole card and comments. ${App.canEdit ? "Shaded cells edit in place (Enter saves, Esc cancels). " : ""}Current depth is the deepest timesheet end; Final fills itself when a hole is marked Complete; Started / Ended fall back to the timesheet (shown in grey) until typed. Order sets a planned hole's place in a rig's queue.</p>`;
@@ -151,7 +153,8 @@ function rowHtml(h){
     ${td("vibe", App.vibe(h.vibe))}
     ${td("start_date", `<span class="${d.derivedStart ? "muted" : ""}">${App.fmt.d(d.start)}</span>`)}
     ${td("end_date", `<span class="${d.derivedEnd ? "muted" : ""}">${App.fmt.d(d.end)}</span>`)}
-    <td class="wrap-text ${ed ? "edit" : ""}" ${ed ? `data-cell="${h.id}|objective"` : ""} title="${esc(h.objective || "")}"><div class="clamp">${esc(h.objective || "")}</div></td><td class="wrap-text ${ed ? "edit" : ""}" ${ed ? `data-cell="${h.id}|result"` : ""} title="${esc(h.result || "")}"><div class="clamp">${esc(h.result || "")}</div></td></tr>`;
+    <td class="wrap-text ${ed ? "edit" : ""}" ${ed ? `data-cell="${h.id}|objective"` : ""} title="${esc(h.objective || "")}"><div class="clamp">${esc(h.objective || "")}</div></td><td class="wrap-text ${ed ? "edit" : ""}" ${ed ? `data-cell="${h.id}|result"` : ""} title="${esc(h.result || "")}"><div class="clamp">${esc(h.result || "")}</div></td>
+    <td class="noprint">${ed ? (h.archived ? `<button class="btn xs" data-restore="${h.id}" title="Put this hole back in the register">restore</button>` : `<button class="btn xs ghost danger-text" data-remove="${h.id}" title="Remove from the register (kept under “removed”)">✕</button>`) : ""}</td></tr>`;
 }
 const rigOptions = (projectId, sel) => `<option value="">– no rig –</option>` + App.data.rigs.filter(r => r.project_id === projectId).sort((a, b) => a.sort - b.sort).map(r => `<option value="${esc(r.id)}" ${sel === r.id ? "selected" : ""}>${esc(r.label)}</option>`).join("");
 function newRowHtml(){
@@ -183,6 +186,8 @@ function wire(el){
   $$("td[data-open]", el).forEach(td => td.onclick = () => App.openHole(td.dataset.open));
   $$("td[data-cell]", el).forEach(td => td.onclick = () => startCell(td));
   $$("[data-order]", el).forEach(b => b.onclick = e => { e.stopPropagation(); state.ordering = b.dataset.order; render(); });
+  $$("[data-remove]", el).forEach(b => b.onclick = async e => { e.stopPropagation(); const h = App.hole(b.dataset.remove); if (!App.confirm(`Remove ${App.holeLabel(h)} from the register? It stays under “removed” and can be restored.`)) return; try { await App.update("holes", { id: h.id }, { archived: true, rig_id: null, seq: null }); App.toast("Hole removed"); await App.reload(["holes"]); } catch (x) { App.err(x); } });
+  $$("[data-restore]", el).forEach(b => b.onclick = async e => { e.stopPropagation(); try { await App.update("holes", { id: b.dataset.restore }, { archived: false }); App.toast("Hole restored"); await App.reload(["holes"]); } catch (x) { App.err(x); } });
   $$("[data-open]", el).filter(a => a.tagName === "A").forEach(a => a.onclick = e => { e.preventDefault(); App.openHole(a.dataset.open); });
   const of = $("[data-orderform]", el);
   if (of) {
