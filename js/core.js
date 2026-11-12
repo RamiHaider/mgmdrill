@@ -60,9 +60,39 @@ App.rig = id => App.data.rigs.find(r => r.id === id);
 App.hole = id => App.data.holes.find(h => h.id === id);
 App.holeByName = name => name ? App.data.holes.find(h => !h.archived && (h.ddh_name || "").toLowerCase() === String(name).toLowerCase()) : null;
 App.holeLabel = h => h ? (h.ddh_name || h.planned_name || "?") : "–";
-App.projectRigs = () => App.data.rigs.filter(r => r.project_id === App.project).sort((a, b) => a.sort - b.sort);
+/* Dan, 12 Nov: Joutel and Douay are one programme; pages show everything and filter by project where useful */
+App.projectRigs = () => App.data.rigs.slice().sort((a, b) => a.sort - b.sort);
 App.activeRigs = () => App.projectRigs().filter(r => r.active);
-App.projectHoles = () => App.data.holes.filter(h => h.project_id === App.project && !h.archived);
+App.projectHoles = () => App.data.holes.filter(h => !h.archived);
+App.projectName = id => App.data.projects.find(p => p.id === id)?.name || id || "";
+/* next hole in a rig's queue after the one it is on (holes.rig_id + holes.seq) */
+App.rigNextHole = rigId => {
+  const cur = App.rigCurrentHole(rigId);
+  const open = new Set(["Permit Pending", "Planned", "Flagged", "Cut", "Spotted"]);
+  return App.data.holes.filter(h => !h.archived && h.rig_id === rigId && open.has(h.status) && h.id !== cur?.id).sort((a, b) => (a.seq ?? 999) - (b.seq ?? 999))[0] || null;
+};
+/* export a block of the page: print only it (PDF) or save it as a PNG */
+App.exportPdf = node => {
+  if (!node) return;
+  const area = document.createElement("div"); area.id = "printArea";
+  const clone = node.cloneNode(true);
+  const src = node.querySelectorAll("canvas"), dst = clone.querySelectorAll("canvas");
+  dst.forEach((c, i) => { const img = document.createElement("img"); img.src = src[i].toDataURL("image/png"); img.style.width = "100%"; c.replaceWith(img); });
+  clone.querySelectorAll(".noprint,button,select,input").forEach(x => x.remove());
+  area.appendChild(clone); document.body.appendChild(area); document.body.classList.add("print-sheet");
+  const off = () => { document.body.classList.remove("print-sheet"); area.remove(); window.removeEventListener("afterprint", off); };
+  window.addEventListener("afterprint", off); window.print(); setTimeout(off, 60000);
+};
+App.exportPng = async (node, name) => {
+  if (!node) return;
+  try {
+    if (!window.html2canvas) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Could not load the image library")); document.head.appendChild(s); });
+    const wraps = [...node.querySelectorAll(".tablewrap")].map(w => [w, w.style.maxHeight, w.style.overflow]); wraps.forEach(([w]) => { w.style.maxHeight = "none"; w.style.overflow = "visible"; });
+    const canvas = await window.html2canvas(node, { backgroundColor: App.cssVar("--bg") || "#fff", scale: 2, useCORS: true, ignoreElements: e => e.classList?.contains("noprint") });
+    wraps.forEach(([w, mh, ov]) => { w.style.maxHeight = mh; w.style.overflow = ov; });
+    const a = document.createElement("a"); a.download = `${name}-${App.today()}.png`; a.href = canvas.toDataURL("image/png"); a.click();
+  } catch (e) { App.err(e); }
+};
 App.settings = () => App.data.settings || { targets: { m_per_rig_day: 60, program_m: 25000, program_holes: 75, season_start: "2026-07-01" } };
 App.targets = () => App.settings().targets || {};
 
@@ -207,12 +237,7 @@ App.render = function(){
 App.go = v => { location.hash = "#" + v; };
 
 /* ---------- project switch ---------- */
-$("#projsel").onchange = e => { App.project = e.target.value; localStorage.setItem("mgmdrill.project", App.project); App.render(); };
-function fillProjects(){
-  const sel = $("#projsel"); sel.innerHTML = App.data.projects.filter(p => p.active).map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-  if (!App.data.projects.some(p => p.id === App.project)) App.project = App.data.projects[0]?.id || "joutel";
-  sel.value = App.project;
-}
+function fillProjects(){ $("#projsel").hidden = true; }
 
 /* ---------- drawer (hole card / shift comments) ---------- */
 App.drawer = { kind: null, id: null, extra: null };

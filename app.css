@@ -281,14 +281,29 @@ table.holes tr.newrow input,table.holes tr.newrow select{padding:2px 5px;font-si
 .ts td.edit input{width:100%;padding:1px 3px;font-size:12px;border-radius:3px;min-width:0}
 .ts td .btn.xs{padding:0 4px}
 
-/* vibe check export: print only the sheet */
+/* sheet export: print only the cloned block in #printArea */
+#printArea{display:none}
+.sheet{display:flex;flex-direction:column;gap:12px}
 @media print{
-  body.print-sheet main > *{display:none!important}
-  body.print-sheet #view-holes{display:flex!important}
-  body.print-sheet #view-holes > *:not(#hTable){display:none!important}
-  body.print-sheet .tablewrap{max-height:none;overflow:visible;border:0}
-  body.print-sheet .tile{break-inside:avoid}
+  body.print-sheet > *:not(#printArea){display:none!important}
+  #printArea{display:block;padding:10px}
+  #printArea .tablewrap{max-height:none;overflow:visible;border:0}
+  #printArea .tile,#printArea tr{break-inside:avoid}
+  #printArea .chartbox{height:auto}
+  #printArea .cols-2{grid-template-columns:1fr}
 }
+/* vibe check colours: mortgage / good = green, ok = light green, neutral = grey, bad = red */
+.vibetable td.res{white-space:normal;min-width:420px;width:60%;line-height:1.35}
+.vibetable tr.vibe-Mortgage td{background:color-mix(in srgb,#6250d6 22%,var(--surface))}
+.vibetable tr.vibe-Excellent td,.vibetable tr.vibe-Good td{background:color-mix(in srgb,var(--good) 20%,var(--surface))}
+.vibetable tr.vibe-Ok td{background:color-mix(in srgb,#9ccc3c 18%,var(--surface))}
+.vibetable tr.vibe-Neutral td{background:color-mix(in srgb,var(--muted-2) 16%,var(--surface))}
+.vibetable tr.vibe-Bad td{background:color-mix(in srgb,var(--bad) 18%,var(--surface))}
+.vibetable tbody tr:hover td{filter:brightness(1.05)}
+.tile.vibe-Mortgage{border-color:#6250d6} .tile.vibe-Excellent,.tile.vibe-Good{border-color:var(--good)} .tile.vibe-Ok{border-color:#9ccc3c} .tile.vibe-Bad{border-color:var(--bad)}
+.vibe.Ok i{background:#9ccc3c}
+.report .geo td{background:var(--surface-2);font-size:12.5px}
+.report .geo b{color:var(--muted);text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;margin-right:6px}
 table.dense td.wrap-text{max-width:260px}
 table.dense td.wrap-text .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 table.dense td.wrap-text.edit{cursor:text}
@@ -300,3 +315,5 @@ table.dense td.wrap-text.edit{cursor:text}
 .ts tr.latest td.sticky-col .note{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .ts tr.latest td.edit{background:color-mix(in srgb,var(--edit) 70%,var(--gold))}
 .ts tr.latest + tr td{border-top:0}
+.report .geo td{white-space:normal}
+.report .geo .edit-field{display:inline-block;min-width:240px;max-width:48%;vertical-align:middle;margin-right:8px}

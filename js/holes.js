@@ -94,7 +94,7 @@ function render(){
       <select id="hRig" style="max-width:130px"><option value="">All rigs</option>${rigs.map(r => `<option value="${esc(r.id)}" ${state.rig === r.id ? "selected" : ""}>${esc(r.label)}</option>`).join("")}</select>
       <label class="row small muted" style="gap:4px">Order by <select id="hSort" style="width:auto">${SORTS.map(([k, l]) => `<option value="${k}" ${state.sort.key === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <input id="hQ" type="search" placeholder="Search…" value="${esc(state.q)}" style="max-width:200px">
-      <div class="chips">${App.STATUSES.filter(s => counts[s]).map(s => `<button class="chip toggle sm" data-st="${esc(s)}" aria-pressed="${state.status.has(s)}" style="--c:${App.STATUS_HEX[s]}"><i></i>${esc(s)} ${counts[s]}</button>`).join("")}</div>
+      <div class="chips" ${state.mode === "vibe" ? "hidden" : ""}>${App.STATUSES.filter(s => counts[s]).map(s => `<button class="chip toggle sm" data-st="${esc(s)}" aria-pressed="${state.status.has(s)}" style="--c:${App.STATUS_HEX[s]}"><i></i>${esc(s)} ${counts[s]}</button>`).join("")}</div>
     </div>
     <div id="hEditor"></div>
     ${state.mode === "register" ? registerHtml(list) : vibeHtml(list)}`;
@@ -258,34 +258,23 @@ function startCell(td){
 }
 function sel(opts, cur){ const s = document.createElement("select"); s.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}" ${String(cur) === v ? "selected" : ""}>${esc(l)}</option>`).join(""); return s; }
 
-/* ---- vibe check (read-only sheet, same filters as the register) ---- */
+/* ---- vibe check: Complete and In Progress holes, colour-coded by vibe (read-only sheet) ---- */
 function vibeHtml(list){
-  const rows = list.filter(h => h.ddh_name && (h.vibe || ["In Progress", "Complete"].includes(h.status)));
+  const q = state.q.toLowerCase();
+  const rows = allHoles().filter(h => h.ddh_name && ["Complete", "In Progress"].includes(h.status) && (!state.zone || h.zone === state.zone) && (!state.rig || rigOf(h)?.id === state.rig) &&
+    (!q || [h.ddh_name, h.planned_name, h.zone, h.result].some(v => (v || "").toLowerCase().includes(q))));
+  const sortedRows = state.sort.key === "vibe" ? sorted(rows) : rows.sort((a, b) => (b.start_date || "").localeCompare(a.start_date || "") || (b.ddh_name || "").localeCompare(a.ddh_name || "", undefined, { numeric: true }));
   const counts = {}; for (const h of rows) if (h.vibe) counts[h.vibe] = (counts[h.vibe] || 0) + 1;
-  const title = `Vibe check · ${state.proj ? projName(state.proj) : "all projects"}${state.zone ? " · " + state.zone : ""} · ${App.fmt.dl(App.today())}`;
-  return `<div id="hTable" class="sheet" style="display:flex;flex-direction:column;gap:12px;background:var(--bg);padding:4px">
+  const title = `Vibe check · ${state.proj ? projName(state.proj) : "Joutel and Douay"}${state.zone ? " · " + state.zone : ""} · ${App.fmt.dl(App.today())}`;
+  return `<div id="hTable" class="sheet vibesheet">
     <div class="row" style="justify-content:space-between"><h3 style="text-transform:none;font-size:15px;color:var(--fg)">${esc(title)}</h3><span class="note">${rows.length} holes</span></div>
-    <div class="tiles">${App.VIBES.map(v => `<div class="tile"><div class="v">${counts[v] || 0}</div><div class="l">${App.vibe(v)}</div></div>`).join("")}</div>
-    <div class="tablewrap"><table class="dense"><thead><tr><th>Project</th><th>DDH</th><th>Planned ID</th><th>Zone</th><th>Rig</th><th>Status</th><th class="num">Depth</th><th>Vibe</th><th>Result</th></tr></thead><tbody>
-    ${rows.map(h => `<tr><td>${esc(projName(h.project_id))}</td><td><a href="#" data-open="${h.id}"><b>${esc(h.ddh_name)}</b></a></td><td>${esc(h.planned_name || "")}</td><td>${esc(h.zone || "")}</td><td>${rigChip(rigOf(h))}</td><td>${App.pill(h.status)}</td>
-      <td class="num">${App.fmt.n(App.holeDepth(h))}</td><td>${App.vibe(h.vibe)}</td><td class="wrap-text small">${esc(h.result || "")}</td></tr>`).join("") || `<tr><td colspan="9" class="empty">No holes match.</td></tr>`}</tbody></table></div>
-    <p class="note">Vibe is set by the geologist in the Register (Vibe column). Use Order by “Vibe, best first” to rank the holes.</p></div>`;
+    <div class="tiles">${App.VIBES.map(v => `<div class="tile vibe-${App.vibeClass(v)}"><div class="v">${counts[v] || 0}</div><div class="l">${App.vibe(v)}</div></div>`).join("")}</div>
+    <div class="tablewrap"><table class="dense vibetable"><thead><tr><th>Hole ID</th><th>Zone</th><th>Vibe</th><th>Result</th></tr></thead><tbody>
+    ${sortedRows.map(h => `<tr class="vibe-${h.vibe ? App.vibeClass(h.vibe) : "none"}"><td><a href="#" data-open="${h.id}"><b>${esc(h.ddh_name)}</b></a>${h.status === "In Progress" ? ' <span class="tag">in progress</span>' : ""}</td><td>${esc(h.zone || "")}</td><td>${App.vibe(h.vibe)}</td><td class="res">${esc(h.result || "")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No holes match.</td></tr>`}</tbody></table></div>
+    <p class="note noprint">Completed and in-progress holes only. Vibe is set in the Register; use Order by “Vibe, best first” to rank.</p></div>`;
 }
-function exportPdf(){
-  document.body.classList.add("print-sheet");
-  const off = () => { document.body.classList.remove("print-sheet"); window.removeEventListener("afterprint", off); };
-  window.addEventListener("afterprint", off); window.print(); setTimeout(off, 60000);
-}
-async function exportPng(){
-  const node = $("#hTable"); if (!node) return;
-  try {
-    if (!window.html2canvas) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Could not load the image library")); document.head.appendChild(s); });
-    const wrap = node.querySelector(".tablewrap"); const prev = wrap.style.maxHeight; wrap.style.maxHeight = "none"; wrap.style.overflow = "visible";
-    const canvas = await window.html2canvas(node, { backgroundColor: App.cssVar("--bg") || "#fff", scale: 2, useCORS: true });
-    wrap.style.maxHeight = prev; wrap.style.overflow = "";
-    const a = document.createElement("a"); a.download = `vibe-check-${App.today()}.png`; a.href = canvas.toDataURL("image/png"); a.click();
-  } catch (e) { App.err(e); }
-}
+const exportPdf = () => App.exportPdf($("#hTable"));
+const exportPng = () => App.exportPng($("#hTable"), "vibe-check");
 
 /* ---- full editor (from the hole card's Edit button: coordinates and everything else) ---- */
 const F = [
