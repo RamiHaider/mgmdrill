@@ -22,7 +22,7 @@ VIBES = {"bad": "Bad", "neutral": "Neutral", "ok": "Ok", "good": "Good", "excell
 STATUSES = ["Permit Pending", "Planned", "Flagged", "Cut", "Spotted", "In Progress", "Complete", "Cancelled"]
 
 def q(v):
-    if v is None or v == "": return "null"
+    if v is None: return "null"
     if isinstance(v, bool): return "true" if v else "false"
     if isinstance(v, (int, float)): return repr(float(v)) if isinstance(v, float) else str(v)
     if isinstance(v, dt.datetime): return f"'{v.date().isoformat()}'"
