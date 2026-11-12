@@ -263,7 +263,8 @@ drop policy if exists self_read on members;
 create policy self_read on members for select to authenticated using (lower(email) = lower(coalesce(auth.jwt()->>'email','')));
 -- any member comments; only the author (or an admin) edits or deletes
 drop policy if exists member_comment on comments;
-create policy member_comment on comments for insert to authenticated with check (is_member());
+-- viewers may comment on timesheet shifts only; editors and admins anywhere (Rami, 12 Nov)
+create policy member_comment on comments for insert to authenticated with check (is_editor() or (is_member() and rig_id is not null and hole_id is null));
 drop policy if exists own_comment_update on comments;
 create policy own_comment_update on comments for update to authenticated
   using (lower(author) = lower(coalesce(auth.jwt()->>'email',''))) with check (lower(author) = lower(coalesce(auth.jwt()->>'email','')));

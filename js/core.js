@@ -248,12 +248,14 @@ $("#scrim").onclick = App.closeDrawer; $("#drawerClose").onclick = App.closeDraw
 document.addEventListener("keydown", e => { if (e.key === "Escape") App.closeDrawer(); });
 
 function commentsHtml(list, target){
+  const may = App.canEdit || !!target.rig_id; // viewers comment on timesheet shifts only
   return `<div class="card"><header><h3>Comments <span class="tag">${list.length}</span></h3></header>
     <div class="list" id="cmtList">${list.length ? list.map(c => `<div class="cmt"><div class="meta">${esc(c.author.split("@")[0])} · ${App.fmt.dt(c.created_at)} ${(c.author.toLowerCase() === (App.session?.user?.email || "").toLowerCase() || App.isAdmin) ? `<button class="btn xs ghost danger-text" data-del="${c.id}">delete</button>` : ""}</div><div class="body">${esc(c.body)}</div></div>`).join("") : `<div class="empty">No comments yet.</div>`}</div>
-    <form id="cmtForm" class="field"><textarea id="cmtBody" placeholder="Add a comment…" maxlength="4000" required></textarea><div class="actions"><button class="btn primary sm" type="submit">Post</button><span class="note">Everyone with access can comment.</span></div></form></div>`;
+    ${may ? `<form id="cmtForm" class="field"><textarea id="cmtBody" placeholder="Add a comment…" maxlength="4000" required></textarea><div class="actions"><button class="btn primary sm" type="submit">Post</button><span class="note">${App.canEdit ? "Everyone with access can comment on shifts." : "Comments are posted under your name."}</span></div></form>` : `<p class="note">Viewers can comment on timesheet shifts (open a shift from the Timesheet page).</p>`}</div>`;
 }
 function wireComments(el, target){
-  $("#cmtForm", el).onsubmit = async e => { e.preventDefault(); const body = $("#cmtBody", el).value.trim(); if (!body) return;
+  const form = $("#cmtForm", el); if (!form) return;
+  form.onsubmit = async e => { e.preventDefault(); const body = $("#cmtBody", el).value.trim(); if (!body) return;
     try { await App.insert("comments", { ...target, body, author: App.session.user.email }); $("#cmtBody", el).value = ""; await App.reload(["comments"]); } catch (x) { App.err(x); } };
   $$("[data-del]", el).forEach(b => b.onclick = async () => { if (!App.confirm("Delete this comment?")) return; try { await App.remove("comments", { id: b.dataset.del }); await App.reload(["comments"]); } catch (x) { App.err(x); } });
 }
