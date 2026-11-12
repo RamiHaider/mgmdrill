@@ -83,7 +83,7 @@ function build(){
   s.onchange = () => { const v = s.value.trim().toLowerCase(); if (v && App.projectHoles().some(h => [h.ddh_name, h.planned_name].some(n => (n || "").toLowerCase() === v))) findHole(v); };
   $("#mLyr").onchange = e => { const c = e.target.closest("input[data-k]"); if (!c) return; vis[c.dataset.k] = c.checked; saveVis(); applyVisibility(); };
   $("#mLegend").innerHTML = App.STATUSES.map(s => `<span><i style="background:${App.STATUS_HEX[s]}"></i>${esc(s)}</span>`).join("")
-    + `<span>– – planned trace · ── drilled</span><span class="muted">Labels show at zoom ${LABEL_ZOOM}+</span>`;
+    + `<span>── hole trace</span><span class="muted">Labels show at zoom ${LABEL_ZOOM}+</span>`;
   built = true;
 }
 
@@ -117,14 +117,14 @@ function buildCollars(){
     g.labels.addLayer(L.tooltip({ permanent: true, direction: "right", offset: [8, 0], className: "collar-label", interactive: false }).setLatLng(ll).setContent(esc(App.holeLabel(h))));
     // trace: Complete uses actual depth when known, otherwise the planned length
     const planned = Number(h.planned_depth) || 0, depth = App.holeDepth(h);
-    const style = { color: col, weight: 2, opacity: .9, interactive: false };
+    const style = { color: "#000000", weight: 1, opacity: .95, interactive: false }; // pencil-thin black, solid (Rami, 12 Nov)
     if (h.status === "In Progress") {
       const d = Math.min(depth || 0, planned || depth || 0);
       if (d > 0) g.traces.addLayer(L.polyline([ll, traceLL(h, d)], style));
-      if (planned > d) g.traces.addLayer(L.polyline([traceLL(h, d), traceLL(h, planned)], { ...style, dashArray: "5 5" }));
+      if (planned > d) g.traces.addLayer(L.polyline([traceLL(h, d), traceLL(h, planned)], style));
     } else if (h.status === "Complete") {
       const d = depth || planned; if (d > 0) g.traces.addLayer(L.polyline([ll, traceLL(h, d)], style));
-    } else if (planned > 0) g.traces.addLayer(L.polyline([ll, traceLL(h, planned)], { ...style, dashArray: "5 5" }));
+    } else if (planned > 0) g.traces.addLayer(L.polyline([ll, traceLL(h, planned)], style));
   }
 }
 
