@@ -133,6 +133,8 @@ for r in ws.iter_rows(min_row=21, values_only=True):
         hole, st, en, tot, com = r[c], r[c+1], r[c+2], r[c+3], r[c+4]
         if not any(v not in (None, "", 0) for v in (hole, st, en, tot, com)): continue
         if not s(hole) and num(tot) in (None, 0) and num(en) is None: continue
+        # pre-filled future rows (hole name carried forward, no end / total / comment) are not shifts yet
+        if num(en) is None and num(tot) is None and not s(com): continue
         out.append("insert into shift_entries (rig_id, shift_date, shift, hole_name, start_m, end_m, total_m, comment, source) values "
                    f"({q(rig)}, {q(d)}, {q(shift)}, {q(s(hole) or None)}, {q(num(st))}, {q(num(en))}, {q(num(tot))}, {q(s(com))}, 'import');")
         n_shift += 1

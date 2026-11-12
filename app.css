@@ -292,3 +292,11 @@ table.holes tr.newrow input,table.holes tr.newrow select{padding:2px 5px;font-si
 table.dense td.wrap-text{max-width:260px}
 table.dense td.wrap-text .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 table.dense td.wrap-text.edit{cursor:text}
+/* yesterday = the shifts the geologist is entering now */
+.ts tr.latest td{background:color-mix(in srgb,var(--gold) 14%,var(--surface))}
+.ts tr.latest.first td{border-top:3px solid var(--gold)}
+.ts tr.latest td.sticky-col{background:color-mix(in srgb,var(--gold) 22%,var(--surface));color:var(--fg)}
+.ts tr.latest td.sticky-col b{font-size:14px}
+.ts tr.latest td.sticky-col .note{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.ts tr.latest td.edit{background:color-mix(in srgb,var(--edit) 70%,var(--gold))}
+.ts tr.latest + tr td{border-top:0}

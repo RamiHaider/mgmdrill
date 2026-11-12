@@ -117,8 +117,9 @@ function render(){
   const head2 = `<tr class="h2">${rigs.map(() => ["Hole", "Start", "End", "Total", "Comment"].map(l => `<th${l === "Start" || l === "End" || l === "Total" ? ' class="num"' : ""}>${l}</th>`).join("")).join("")}</tr>`;
   const body = dates.map(d => {
     const tot = dayTot(d), perRig = rigs.map(r => `${esc(r.id)} ${num(by[r.id]?.[d] || 0) || 0}`).join(" · ");
-    const night = `<tr class="night first"><td rowspan="2" class="sticky-col" title="${perRig}"><b>${App.fmt.d(d)}</b> <span class="note">${App.parseDate(d).toLocaleDateString("en-CA", { weekday: "short" })}</span><div class="daytot${tot === 0 ? " zero" : ""}">${num(tot) || 0} m</div></td><td class="sub">Night</td>${rigs.map(r => shiftCells(r, d, "night")).join("")}</tr>`;
-    const day = `<tr><td class="sub">Day</td>${rigs.map(r => shiftCells(r, d, "day")).join("")}</tr>`;
+    const latest = d === to ? " latest" : "";
+    const night = `<tr class="night first${latest}"><td rowspan="2" class="sticky-col" title="${perRig}"><b>${App.fmt.d(d)}</b> <span class="note">${latest ? "yesterday" : App.parseDate(d).toLocaleDateString("en-CA", { weekday: "short" })}</span><div class="daytot${tot === 0 ? " zero" : ""}">${num(tot) || 0} m</div></td><td class="sub">Night</td>${rigs.map(r => shiftCells(r, d, "night")).join("")}</tr>`;
+    const day = `<tr class="${latest.trim()}"><td class="sub">Day</td>${rigs.map(r => shiftCells(r, d, "day")).join("")}</tr>`;
     return night + day;
   }).join("");
   const foot = `<tfoot><tr><td colspan="2" class="sticky-col">Total ${App.fmt.n(winTotal)} m</td>${rigs.map(r => `<td colspan="3"></td><td class="num">${num(App.rangeMetres(from, to, r.id))}</td><td></td>`).join("")}</tr></tfoot>`;
