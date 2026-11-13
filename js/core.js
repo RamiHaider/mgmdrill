@@ -217,9 +217,10 @@ App.current = null;
 App.route = function(){
   const h = location.hash.replace("#", "").split("?")[0];
   let v = VIEWS.includes(h) ? h : "map";
-  if (!App.canView || App.pwSetup) v = "login";
+  if (!App.canView || App.pwSetup || App.fpOpen) v = "login";
   App.current = v;
-  $("#loginForm").hidden = !!App.pwSetup; $("#pwForm").hidden = !App.pwSetup;
+  $("#loginForm").hidden = !!(App.pwSetup || App.fpOpen); $("#pwForm").hidden = !App.pwSetup; $("#fpForm").hidden = !App.fpOpen;
+  $("#pwNote").hidden = !App.pwForced; $("#pwCancel").textContent = App.pwForced ? "Sign out" : "Cancel";
   for (const x of VIEWS) { const el = $("#view-" + x); if (el) el.hidden = x !== v; }
   $("#view-login").hidden = v !== "login";
   $$("#nav a").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
@@ -308,24 +309,29 @@ $("#loginForm").onsubmit = async e => {
   if (error) return showMsg("#loginMsg", error.message, "err");
   showMsg("#loginMsg", "");
 };
-$("#lReset").onclick = async () => {
-  const email = $("#lEmail").value.trim(); if (!email) return showMsg("#loginMsg", "Type your email first.", "err");
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  showMsg("#loginMsg", error ? error.message : "If that email has an account, a link to choose your password is on its way (check junk too). It is valid for one hour.", error ? "err" : "ok");
+/* forgot password: small card asking for the email, sends the recovery link */
+App.fpOpen = false;
+$("#lReset").onclick = () => { App.fpOpen = true; $("#fpEmail").value = $("#lEmail").value.trim(); showMsg("#fpMsg", ""); App.route(); $("#fpEmail").focus(); };
+$("#fpCancel").onclick = () => { App.fpOpen = false; App.route(); };
+$("#fpForm").onsubmit = async e => {
+  e.preventDefault(); showMsg("#fpMsg", "Sending…");
+  const { error } = await sb.auth.resetPasswordForEmail($("#fpEmail").value.trim(), { redirectTo: location.origin + location.pathname });
+  showMsg("#fpMsg", error ? error.message : "If that email has an account, the link is on its way. It is valid for one hour.", error ? "err" : "ok");
 };
-/* password setup: shown after the emailed link lands (PASSWORD_RECOVERY) or from the Password button in the top bar */
-App.pwSetup = false;
-const openPw = () => { App.pwSetup = true; $("#pwNew").value = $("#pwAgain").value = ""; showMsg("#pwMsg", ""); App.route(); $("#pwNew").focus(); };
-const closePw = () => { App.pwSetup = false; App.route(); };
-$("#btnPw").onclick = openPw;
-$("#pwCancel").onclick = closePw;
+/* password setup: forced on the first sign-in with a temporary password (user_metadata.must_change_pw), after the
+   emailed recovery link lands (PASSWORD_RECOVERY), or from the Password button in the top bar */
+App.pwSetup = false; App.pwForced = false;
+const openPw = forced => { App.pwSetup = true; App.pwForced = !!forced; $("#pwNew").value = $("#pwAgain").value = ""; showMsg("#pwMsg", ""); App.route(); $("#pwNew").focus(); };
+const closePw = () => { App.pwSetup = App.pwForced = false; App.route(); };
+$("#btnPw").onclick = () => openPw(false);
+$("#pwCancel").onclick = () => App.pwForced ? sb.auth.signOut({ scope: "local" }).then(closePw) : closePw();
 $("#pwForm").onsubmit = async e => {
   e.preventDefault();
   const a = $("#pwNew").value, b = $("#pwAgain").value;
   if (a.length < 8) return showMsg("#pwMsg", "Use at least 8 characters.", "err");
   if (a !== b) return showMsg("#pwMsg", "The two passwords differ.", "err");
   showMsg("#pwMsg", "Saving…");
-  const { error } = await sb.auth.updateUser({ password: a });
+  const { error } = await sb.auth.updateUser({ password: a, data: { must_change_pw: false } });
   if (error) return showMsg("#pwMsg", error.message, "err");
   App.toast("Password saved. You are signed in."); closePw();
 };
@@ -334,6 +340,8 @@ let authSeq = 0;
 sb.auth.onAuthStateChange((event, s) => {
   App.session = s; const seq = ++authSeq;
   if (event === "PASSWORD_RECOVERY") App.pwSetup = true;
+  if (s?.user?.user_metadata?.must_change_pw) { App.pwSetup = App.pwForced = true; }
+  if (!s) App.pwSetup = App.pwForced = false;
   setTimeout(async () => {
     if (seq !== authSeq) return;
     if (s) { const { data } = await sb.rpc("my_role"); App.role = data || null; } else App.role = null;
@@ -348,5 +356,15 @@ sb.auth.onAuthStateChange((event, s) => {
     App.route();
   }, 0);
 });
+/* recovery link with a token hash (email template uses {{ .TokenHash }}): verified here, in the page, so a mail
+   scanner that pre-opens the link (Outlook Safe Links) does not burn the one-time token before the person clicks */
+(async () => {
+  const q = new URLSearchParams(location.search), th = q.get("token_hash"), type = q.get("type");
+  if (!th) return;
+  history.replaceState(null, "", location.pathname);
+  const { error } = await sb.auth.verifyOtp({ token_hash: th, type: type || "recovery" });
+  if (error) return showMsg("#loginMsg", "This link is invalid or has expired. Use Forgot password to get a new one.", "err");
+  openPw(false);
+})();
 App.route();
 })();

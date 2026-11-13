@@ -42,12 +42,20 @@
     <form id="loginForm" class="card">
       <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
       <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
-      <div class="actions"><button class="btn primary" type="submit">Sign in</button><button class="btn ghost sm" type="button" id="lReset">First time here / forgot password</button></div>
+      <div class="actions"><button class="btn primary" type="submit">Sign in</button><button class="btn ghost sm" type="button" id="lReset">Forgot password</button></div>
       <div id="loginMsg" class="msg" hidden></div>
-      <p class="note center">Access is by invitation. First time? Type your work email and click <b>First time here</b>: a link to choose your password is emailed to you.</p>
+      <p class="note center">Access is by invitation. Ask the project geologist or the database manager.</p>
+    </form>
+    <form id="fpForm" class="card" hidden>
+      <h3>Forgot password</h3>
+      <p class="note">Type your work email. If it has an account, a link to choose a new password is emailed to you (check junk too).</p>
+      <div class="field"><label for="fpEmail">Email</label><input id="fpEmail" type="email" autocomplete="username" required></div>
+      <div class="actions"><button class="btn primary" type="submit">Send link</button><button class="btn ghost sm" type="button" id="fpCancel">Cancel</button></div>
+      <div id="fpMsg" class="msg" hidden></div>
     </form>
     <form id="pwForm" class="card" hidden>
-      <h3>Choose your password</h3>
+      <h3 id="pwTitle">Choose your password</h3>
+      <p class="note" id="pwNote" hidden>You signed in with a temporary password. Choose your own to continue.</p>
       <div class="field"><label for="pwNew">New password (8+ characters)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="8" required></div>
       <div class="field"><label for="pwAgain">Repeat it</label><input id="pwAgain" type="password" autocomplete="new-password" minlength="8" required></div>
       <div class="actions"><button class="btn primary" type="submit">Save password</button><button class="btn ghost sm" type="button" id="pwCancel">Cancel</button></div>
