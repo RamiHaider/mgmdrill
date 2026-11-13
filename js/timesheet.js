@@ -48,12 +48,15 @@ function buildIndex(){
   }
 }
 
-/* latest existing row for a rig before (date, shift) */
+/* latest row for a rig before (date, shift) that has an end depth: a comment-only or empty shift
+   (rig down, no production) does not break the start-from-previous-end chain */
 function prevShift(rigId, date, shift){
   const k = date + (shift === "night" ? "b" : "a"); let best = null, bk = "";
-  for (const s of App.data.shifts) { if (s.rig_id !== rigId) continue; const sk = s.shift_date + (s.shift === "night" ? "b" : "a"); if (sk < k && sk > bk) { bk = sk; best = s; } }
+  for (const s of App.data.shifts) { if (s.rig_id !== rigId || s.end_m == null) continue; const sk = s.shift_date + (s.shift === "night" ? "b" : "a"); if (sk < k && sk > bk) { bk = sk; best = s; } }
   return best;
 }
+/* the previous end carries over only while drilling the same hole (or no hole typed yet) */
+const carries = (prev, holeName) => !!prev && prev.end_m != null && (!holeName || sameHole(holeName, prev.hole_name));
 const cell = (cls, attrs, html) => `<td${cls.length ? ` class="${cls.join(" ")}"` : ""}${attrs}>${html}</td>`;
 
 function shiftCells(rig, date, shift){
@@ -65,13 +68,15 @@ function shiftCells(rig, date, shift){
   const ttl = t => t ? ` title="${esc(t)}"` : "";
   const base = f => ed ? ["edit"] : [];
   let h = "";
-  // Hole
-  h += cell([...base(), "hole"], data("hole_name") + ttl(r?.hole_name ? srcT : ""), r ? `${esc(r.hole_name || "")}${locked ? " " + App.src(r.source) : ""}` : "");
+  // Hole (inherits the previous shift's hole until you type one)
+  const inherit = (!r || r.start_m == null || !r.hole_name) && ed ? prevShift(rig.id, date, shift) : null;
+  const hInherit = (!r || !r.hole_name) && inherit?.hole_name ? inherit.hole_name : null;
+  h += cell([...base(), "hole"], data("hole_name") + ttl(r?.hole_name ? srcT : (hInherit ? `Continues ${hInherit} from the previous shift unless you type another hole` : "")),
+    r?.hole_name ? `${esc(r.hole_name)}${locked ? " " + App.src(r.source) : ""}` : (hInherit ? `<span class="muted" style="font-weight:400">${esc(hInherit)}</span>` : ""));
   // Start (with depth-continuity check against the previous shift on the same hole)
   const p = prevOf.get(key(rig.id, date, shift));
   const gap = r && p && r.start_m != null && p.end_m != null && sameHole(r.hole_name, p.hole_name) && Math.abs(Number(r.start_m) - Number(p.end_m)) > 0.05;
   const sTitle = gap ? `Gap vs previous shift (previous end ${num(p.end_m)} m) · ${srcT}` : (r?.start_m != null ? srcT : "");
-  const inherit = (!r || r.start_m == null) && ed ? prevShift(rig.id, date, shift) : null;
   h += cell([...base(), "num"], data("start_m") + ttl(inherit?.end_m != null ? `Starts at the previous shift's end (${num(inherit.end_m)} m) unless you type a depth` : sTitle) + (gap ? ` style="color:var(--warn);font-weight:700"` : ""),
     r && r.start_m != null ? num(r.start_m) : (inherit?.end_m != null ? `<span class="muted" style="font-weight:400">${num(inherit.end_m)}</span>` : ""));
   h += cell([...base(), "num"], data("end_m") + ttl(r?.end_m != null ? srcT : ""), r ? num(r.end_m) : "");
@@ -157,9 +162,10 @@ function startEdit(td){
   if (st.editing) return;
   const { r: rig_id, d: shift_date, s: shift, f: field } = td.dataset;
   const cur = idx.get(key(rig_id, shift_date, shift)) || {};
-  const prev = cur.start_m == null ? prevShift(rig_id, shift_date, shift) : null;
+  const prev = cur.start_m == null || !cur.hole_name ? prevShift(rig_id, shift_date, shift) : null;
   const stored = field === "total_m" ? (cur.rig_id ? String(round2(App.shiftTotal(cur))) : "") : (cur[field] == null ? "" : String(cur[field]));
-  const initial = field === "start_m" && cur.start_m == null && prev?.end_m != null ? String(prev.end_m) : stored;
+  const initial = field === "start_m" && cur.start_m == null && prev?.end_m != null ? String(prev.end_m)
+    : field === "hole_name" && !cur.hole_name && prev?.hole_name ? prev.hole_name : stored;
   const input = document.createElement("input");
   input.type = "text"; input.value = initial; input.autocomplete = "off";
   if (field === "hole_name") input.setAttribute("list", "tsHoles");
@@ -174,7 +180,7 @@ function startEdit(td){
       const row = { rig_id, shift_date, shift, hole_name: cur.hole_name ?? null, hole_id: cur.hole_id ?? null, start_m: cur.start_m ?? null, end_m: cur.end_m ?? null,
         total_m: cur.total_m ?? null, comment: cur.comment || "", source: "manual" };
       // a new shift continues the previous one: same hole, start = previous end
-      if (prev && row.start_m == null && field !== "start_m" && prev.end_m != null) row.start_m = Number(prev.end_m);
+      if (prev && row.start_m == null && field !== "start_m" && prev.end_m != null && (field !== "hole_name" || sameHole(val, prev.hole_name))) row.start_m = Number(prev.end_m);
       if (prev && !row.hole_name && field !== "hole_name" && prev.hole_name) { row.hole_name = prev.hole_name; row.hole_id = prev.hole_id ?? App.holeByName(prev.hole_name)?.id ?? null; }
       if (field === "hole_name") { row.hole_name = val || null; row.hole_id = App.holeByName(val)?.id || null; }
       else if (field === "comment") row.comment = val;
