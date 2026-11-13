@@ -288,3 +288,38 @@ insert into rigs (id, label, contractor, project_id, source, sort, color) values
   ('FSD39','RJLL FSD39','RJLL','joutel','rjll',4,'#eda100'),
   ('No11','Spektra No11','Spektra','joutel','spektra',5,'#e87ba4')
 on conflict do nothing;
+
+-- ---------- 2026-11-13: downhole surveys + cloud sync (migrations surveys_and_cloud_sync, sync_secrets_rpc_and_cron) ----------
+create table if not exists surveys (
+  id uuid primary key, project_name text, drillhole_id uuid, hole_name text not null,
+  hole_id uuid references holes(id) on delete set null,
+  tool text, run_name text, reading_type text,
+  depth double precision, dip double precision, azimuth double precision, status text,
+  date_created timestamptz, date_updated timestamptz, synced_at timestamptz not null default now()
+);
+create index if not exists surveys_hole_idx on surveys (lower(hole_name), depth);
+create index if not exists surveys_hole_id_idx on surveys (hole_id, depth);
+alter table surveys enable row level security;
+create policy member_read on surveys for select to authenticated using (is_member());
+create policy admin_all on surveys for all to authenticated using (is_admin()) with check (is_admin());
+create table if not exists sync_state (key text primary key, value jsonb not null default '{}'::jsonb, updated_at timestamptz not null default now());
+alter table sync_state enable row level security;
+create policy admin_read on sync_state for select to authenticated using (is_admin());
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
+-- Vault secrets: imdex_api_key, imdex_apim_key, rjll_api_token, sync_key  (select vault.create_secret('<value>', '<name>'))
+create or replace function sync_secrets() returns jsonb language sql stable security definer set search_path = public, vault as $$
+  select coalesce(jsonb_object_agg(name, decrypted_secret), '{}'::jsonb) from vault.decrypted_secrets
+  where name in ('imdex_api_key','imdex_apim_key','rjll_api_token','sync_key'); $$;
+revoke all on function sync_secrets() from public, anon, authenticated; grant execute on function sync_secrets() to service_role;
+create or replace function run_sync(mode text) returns bigint language plpgsql security definer set search_path = public, vault, extensions, net as $$
+declare k text; begin
+  select decrypted_secret into k from vault.decrypted_secrets where name = 'sync_key';
+  if k is null then raise notice 'sync_key missing in vault'; return null; end if;
+  return net.http_post(url := 'https://htmiinlwnojwxznpisav.supabase.co/functions/v1/sync-feeds?mode=' || mode,
+    headers := jsonb_build_object('Content-Type','application/json','x-sync-key', k), body := '{}'::jsonb, timeout_milliseconds := 120000);
+end $$;
+revoke all on function run_sync(text) from public, anon, authenticated;
+select cron.schedule('sync-surveys', '*/15 * * * *', $$select run_sync('surveys')$$);
+select cron.schedule('sync-rjll',    '7-59/15 * * * *', $$select run_sync('rjll')$$);
+-- Edge function source: supabase/functions/sync-feeds/index.ts (deployed with verify_jwt = false; it checks x-sync-key itself)

@@ -302,8 +302,10 @@ App.drawer.refresh = function(){
         ${App.canEdit ? `<button class="btn sm" id="dEdit">Edit hole</button>` : ""}
         ${(h.easting && h.northing) ? `<button class="btn sm" id="dMap">Show on map</button>` : ""}
       </div>
+      <div id="dSurveys"></div>
       ${commentsHtml(App.commentsFor(h.id), { hole_id: h.id })}`;
     wireComments(el, { hole_id: h.id });
+    App.surveysCard(h, $("#dSurveys", el));
     const e1 = $("#dEdit", el); if (e1) e1.onclick = () => { App.closeDrawer(); App.go("holes"); setTimeout(() => App.views.holes?.edit?.(h.id), 50); };
     const e2 = $("#dMap", el); if (e2) e2.onclick = () => { App.closeDrawer(); App.go("map"); setTimeout(() => App.views.map?.focus?.(h.id), 100); };
   } else if (d.kind === "shift") {
@@ -314,6 +316,25 @@ App.drawer.refresh = function(){
       ${commentsHtml(App.commentsForShift(d.id, date, shift), { rig_id: d.id, shift_date: date, shift: shift || null })}`;
     wireComments(el, { rig_id: d.id, shift_date: date, shift: shift || null });
   }
+};
+
+/* Downhole surveys (IMDEXHUB-IQ, synced every 15 min by the sync-feeds cloud job). OMNIx42 only in the card. */
+App.surveysCard = async function(h, box){
+  if (!box) return;
+  const name = (h.ddh_name || "").trim();
+  if (!name) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="card"><header><h3>Downhole surveys <span class="tag">OMNIx42</span></h3></header><div class="small muted">Loading…</div></div>`;
+  const { data, error } = await sb.from("surveys").select("depth,dip,azimuth,status,tool,reading_type,date_updated")
+    .eq("tool", "OMNIx42").or(`hole_id.eq.${h.id},hole_name.ilike.${name}`).order("depth");
+  if (error) { box.innerHTML = `<div class="card"><header><h3>Downhole surveys</h3></header><div class="msg">${esc(error.message)}</div></div>`; return; }
+  const rows = (data || []).filter(r => r.status !== "PreviouslyApproved");
+  const last = rows.reduce((m, r) => (r.date_updated > m ? r.date_updated : m), "");
+  const n = { Approved: rows.filter(r => r.status === "Approved").length, Pending: rows.filter(r => r.status === "Pending").length };
+  box.innerHTML = `<div class="card"><header><h3>Downhole surveys <span class="tag">OMNIx42</span></h3>
+      <span class="small muted">${rows.length ? `${n.Approved} approved${n.Pending ? `, <b style="color:var(--warn)">${n.Pending} pending</b>` : ""} · latest ${App.fmt.dt(last)}` : "no readings in HUB-IQ yet"}</span></header>
+    ${rows.length ? `<div style="max-height:320px;overflow:auto"><table class="dense"><thead><tr><th>Hole</th><th class="num">Depth (m)</th><th class="num">Dip</th><th class="num">Azimuth</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(r => `<tr class="${r.status === "Pending" ? "pending" : ""}"><td>${esc(name)}</td><td class="num mono">${App.fmt.n(r.depth, 1)}</td><td class="num mono">${App.fmt.n(r.dip, 2)}</td><td class="num mono">${App.fmt.n(r.azimuth, 2)}</td><td>${esc(r.status)}${r.reading_type && r.reading_type !== "Survey" ? ` <span class="tag">${esc(r.reading_type)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
+  </div>`;
 };
 
 /* ---------- auth ---------- */

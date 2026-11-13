@@ -173,6 +173,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--since", help="first shift date to load (default: --days back)")
     ap.add_argument("--days", type=int, default=45)
+    ap.add_argument("--no-rjll", action="store_true", help="Spektra only (RJLL now comes from the cloud job sync-feeds)")
     a = ap.parse_args()
     since = date.fromisoformat(a.since) if a.since else date.today() - timedelta(days=a.days)
     if not TS.exists(): problems_pre = [f"SharePoint folder not synced: {TS}"]
@@ -180,9 +181,12 @@ def main():
 
     rows, problems = [], list(problems_pre)
     try:
+        if a.no_rjll: raise StopIteration
         api_rows, n_rep = rjll_api_rows(since, date.today())
         rows += api_rows
         print(f"RJLL API: {n_rep} reports, {len(api_rows)} shifts")
+    except StopIteration:
+        pass
     except Exception as e:
         problems.append(f"RJLL API failed ({e}); used the filed PDFs instead")
         for pdf in sorted(TS.glob("FSD-*/*.pdf")):

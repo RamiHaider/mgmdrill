@@ -368,3 +368,5 @@ table.dense td.wrap-text.edit{cursor:text}
 .lsFig svg .mk.hl > :first-child{stroke:#2a78d6;stroke-width:3px}
 .lsSheet .btn{color:var(--fg)}   /* sheet forces #111 text; buttons follow the app theme */
 @media (max-width:900px){.lsHead{grid-template-columns:1fr 1fr}}
+
+tbody tr.pending td{color:var(--warn)}
