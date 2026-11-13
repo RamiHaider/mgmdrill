@@ -179,6 +179,7 @@ th.sticky-col{z-index:3;background:var(--surface-2)}
 .ts td.hole{min-width:110px}
 .ts td.sub{color:var(--muted);font-size:12px}
 .ts tr.night td{background:color-mix(in srgb,var(--fg) 3%,transparent)}
+.ts tr.night td.sticky-col{background:color-mix(in srgb,var(--fg) 3%,var(--surface))} /* opaque: the date cell must hide columns scrolling under it */
 .ts tr.daytotal td{font-weight:700;border-top:2px solid var(--line)}
 .ts td.zero{color:var(--muted-2)}
 .ts td.neg{color:var(--bad);font-weight:700}
