@@ -27,10 +27,21 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - `python -I tools/export_layers.py` → `supabase/seed/layers_seed.sql` (gitignored).
 - Paste each file into the Supabase SQL editor. Both are wrapped in one transaction.
 
+## Contractor feed (connected 13 Nov 2026)
+- `tools/contractor_pipeline.cmd` runs at 12:00 and 00:00 (Windows Task Scheduler, task "mgmdrill contractor sync",
+  runs when Rami is logged on, catches up if missed): Outlook export (`Desktop/MGM/tools/outlook_export.py`) →
+  file the RJLL PDFs / Spektra workbook on SharePoint (`file_daily_reports.py --tidy`) → `tools/contractor_sync.py`.
+  Log: `private/contractor_sync.log`; each run also writes a `sync_runs` row (Admin tab).
+- `contractor_sync.py` parses the internal-approved RJLL time report PDFs (one row per shift: hole at end of shift,
+  De/À, total = RJLL "Forés" incl. casing, reaming = 0 m; other holes / hole done / reaming in the comment) and the
+  Spektra daily sheets (JOUR rows 7-10, NUIT rows 12-15). Inserts rows with source `rjll` / `spektra`, signed in as
+  an admin (private/accounts.json); unchanged shifts are skipped, so it is safe to re-run. `--dry-run`, `--since`.
+- Spektra sheet 2026-11-10 has T4 = 9 Nov (their typo); the sheet name is taken as the date.
+
 ## Not connected yet
-- RJLL portal pull (noon + midnight) and Spektra timesheet import: needs portal access; writes rows with
-  source `rjll` / `spektra` using the service key. Log goes to `sync_runs`.
-- MX Deposit result summary (MICH = HB + F1; I3m-l is microgabbro, not MICH).
+- MX Deposit result summary (MICH = HB + F1; I3m-l is microgabbro, not MICH) and samples per hole.
+- RJLL has a portal (portail.rjll.ca, time reports approved there); if it has an API the PDF parsing can be swapped
+  for it, same rows.
 
 ## Known limits
 - Free Supabase projects pause after 7 days without traffic; click Restore in the dashboard.

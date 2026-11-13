@@ -43,7 +43,7 @@ function render(){
         <form id="pAdd" class="row"><input name="id" placeholder="id, e.g. morris" required style="max-width:120px"><input name="name" placeholder="Name" required class="grow"><button class="btn primary sm">Add project</button></form>
       </div>
       <div class="card"><header><h3>Data feeds</h3></header>
-        <p class="note">RJLL portal (noon and midnight) and Spektra timesheet imports are run by a scheduled job with the service key; they insert rows with source <b>rjll</b> / <b>spektra</b>, which take precedence over manual entries. MX Deposit result summaries use the MICH codes above. The job is not connected yet: the log below stays empty until it is.</p>
+        <p class="note">Contractor feed: a scheduled job on the database manager's laptop (noon and midnight) pulls the RJLL daily time reports and the Spektra daily workbook from the Outlook mailbox, files them on SharePoint and loads every shift here with source <b>rjll</b> / <b>spektra</b>, which take precedence over manual entries. Each run is logged below. MX Deposit result summaries (not connected yet) will use the MICH codes above.</p>
         <div id="syncLog" class="list"><span class="spin"></span></div>
         <p class="note">To refresh from the Excel tracker instead, run <span class="tag">tools/import_tracker.py</span> and paste the SQL into the Supabase SQL editor.</p>
       </div>
