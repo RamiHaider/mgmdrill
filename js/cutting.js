@@ -56,6 +56,9 @@ function render(){
     return { d, n: w.length, m: m(w), byHole, added: tracked.filter(s => entered[s.sample_no] === d).length, cut: tracked.filter(s => s.cut_date === d).length, shipped: tracked.filter(s => s.ship_date === d).length }; });
   const peak = series.reduce((a, x) => Math.max(a, x.m), 0);
   const winHoles = holes.filter(h => series.some(x => x.byHole[h] > 0));
+  // holes with nothing left on site (everything shipped) merge into one grey area; active holes keep their colour
+  const onSite = new Set(tracked.filter(s => !s.ship_date).map(s => holeKey(s.hole_name)));
+  const activeHoles = winHoles.filter(h => onSite.has(h)), doneHoles = winHoles.filter(h => !onSite.has(h));
   const lastSync = all.map(s => s.synced_at).sort().pop();
 
   el.innerHTML = `
@@ -74,7 +77,7 @@ function render(){
       <div class="tile"><div class="v">${App.fmt.n(shipped.length)}<small> samples</small></div><div class="l">Shipped to the lab</div><div class="d">last shipment ${App.fmt.d(lastShip)}</div></div>
       <div class="tile"><div class="v">${App.fmt.n(cut7, 1)}<small> / day</small></div><div class="l">Cut rate, last 7 days</div><div class="d ${daysToClear != null && daysToClear <= 7 ? "up" : "down"}">${daysToClear != null ? `${daysToClear} days to clear` : "no cutting recorded this week"}</div></div>
     </div>
-    <div class="card"><header><h3>Backlog, metres waiting to be cut</h3><span class="note">${App.fmt.d(from)} – ${App.fmt.d(to)}, peak ${App.fmt.n(peak, 1)} m</span>${xbtns("kBacklog", "backlog-metres")}</header>
+    <div class="card"><header><h3>Backlog, metres waiting to be cut</h3><span class="note">${App.fmt.d(from)} – ${App.fmt.d(to)}, peak ${App.fmt.n(peak, 1)} m · grey = holes fully shipped</span>${xbtns("kBacklog", "backlog-metres")}</header>
       ${state.table ? tableHtml(series) : `<div class="chartbox"><canvas id="kBacklog"></canvas></div>`}</div>
     <div class="cols-2">
       <div class="card"><header><h3>Backlog, number of samples</h3>${xbtns("kCount", "backlog-samples")}</header><div class="chartbox"><canvas id="kCount"></canvas></div></div>
@@ -100,8 +103,10 @@ function render(){
   // 1 backlog metres
   if (!state.table) {
     const o = base(); o.scales.y.title = { display: true, text: "metres", color: App.cssVar("--muted") }; o.elements = { point: { radius: 0 } }; o.scales.y.stacked = state.byHole; o.scales.y.beginAtZero = true;
+    const grey = App.cssVar("--muted-2") || "#898781";
     const datasets = state.byHole && winHoles.length
-      ? winHoles.map(h => ({ label: h, data: series.map(x => +(x.byHole[h] || 0).toFixed(1)), borderColor: colorOf[h], backgroundColor: colorOf[h] + "aa", borderWidth: 1, fill: true, stack: "m" }))
+      ? [...(doneHoles.length ? [{ label: `Left site (${doneHoles.length} holes)`, data: series.map(x => +doneHoles.reduce((a, h) => a + (x.byHole[h] || 0), 0).toFixed(1)), borderColor: grey, backgroundColor: grey + "66", borderWidth: 1, fill: true, stack: "m" }] : []),
+         ...activeHoles.map(h => ({ label: h, data: series.map(x => +(x.byHole[h] || 0).toFixed(1)), borderColor: colorOf[h], backgroundColor: colorOf[h] + "aa", borderWidth: 1, fill: true, stack: "m" }))]
       : [{ label: "Waiting", data: series.map(x => +x.m.toFixed(1)), borderColor: App.cssVar("--gold"), backgroundColor: App.cssVar("--gold") + "33", borderWidth: 2, fill: true }];
     mk("kBacklog", { type: "line", data: { labels, datasets }, options: o });
   }
