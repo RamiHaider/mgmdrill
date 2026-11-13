@@ -114,9 +114,10 @@ input[type=checkbox]{width:auto}
 .vibe{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12.5px}
 .vibe i{width:10px;height:10px;border-radius:2px;display:inline-block;background:var(--muted-2)}
 .vibe.Bad i{background:var(--bad)} .vibe.Neutral i{background:var(--muted-2)} .vibe.Ok i{background:var(--warn)} .vibe.Good i{background:var(--good)} .vibe.Excellent i{background:#1baf7a} .vibe.Mortgage i{background:#6250d6}
-.src{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
-.src.rjll,.src.spektra{border-color:var(--good);color:var(--good)}
-.src.manual,.src.import{border-color:var(--edit-line);color:var(--accent)}
+/* source dot after a hole id: green = contractor feed (RJLL / Spektra), blue = typed here, grey = tracker import */
+.src{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:5px;vertical-align:middle;background:var(--muted-2);cursor:help}
+.src.rjll,.src.spektra{background:var(--good)}
+.src.manual{background:var(--accent)}
 .flag{color:var(--s-flag);font-weight:700}
 
 /* tables */

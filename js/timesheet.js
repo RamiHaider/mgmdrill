@@ -57,7 +57,7 @@ function shiftCells(rig, date, shift){
   const r = idx.get(key(rig.id, date, shift));
   const locked = !!r && CONTRACTOR.has(r.source);
   const ed = App.canEdit && !locked;
-  const srcT = r ? `source: ${r.source}` : "";
+  const srcT = r ? `Source: ${App.srcName(r.source)}` : "";
   const data = f => ed ? ` data-r="${esc(rig.id)}" data-d="${date}" data-s="${shift}" data-f="${f}"` : "";
   const ttl = t => t ? ` title="${esc(t)}"` : "";
   const base = f => ed ? ["edit"] : [];
@@ -66,7 +66,7 @@ function shiftCells(rig, date, shift){
   const inherit = (!r || r.start_m == null || !r.hole_name) && ed ? prevShift(rig.id, date, shift) : null;
   const hInherit = (!r || !r.hole_name) && inherit?.hole_name ? inherit.hole_name : null;
   h += cell([...base(), "hole"], data("hole_name") + ttl(r?.hole_name ? srcT : (hInherit ? `Continues ${hInherit} from the previous shift unless you type another hole` : "")),
-    r?.hole_name ? `${esc(r.hole_name)}${locked ? " " + App.src(r.source) : ""}` : (hInherit ? `<span class="muted" style="font-weight:400">${esc(hInherit)}</span>` : ""));
+    r?.hole_name ? `${esc(r.hole_name)}${App.src(r.source)}` : (hInherit ? `<span class="muted" style="font-weight:400">${esc(hInherit)}</span>` : ""));
   // Start
   const sTitle = r?.start_m != null ? srcT : "";
   h += cell([...base(), "num"], data("start_m") + ttl(inherit?.end_m != null ? `Starts at the previous shift's end (${num(inherit.end_m)} m) unless you type a depth` : sTitle),
