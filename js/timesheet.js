@@ -10,7 +10,7 @@ const LS_RIGS = "mgmdrill.ts.rigs";
 const CONTRACTOR = new Set(["rjll", "spektra"]);
 const PRESETS = [["7", "Last 7 days"], ["14", "Last 14 days"], ["month", "This month"], ["lastmonth", "Last month"], ["season", "Season"]];
 const st = { preset: "7", from: null, to: null, editing: false, dirty: false };
-let idx = new Map(), prevOf = new Map();
+let idx = new Map();
 
 const esc = s => App.esc(s);
 const key = (r, d, s) => `${r}|${d}|${s}`;
@@ -36,16 +36,10 @@ function range(){
 }
 function datesDesc(from, to){ const out = []; for (let d = to; d >= from; d = App.addDays(d, -1)) out.push(d); return out; }
 
-/* index current shift rows and, per rig, the previous shift row (for the depth check) */
+/* index current shift rows */
 function buildIndex(){
-  idx = new Map(); prevOf = new Map();
-  const byRig = {};
-  for (const s of App.data.shifts) { idx.set(key(s.rig_id, s.shift_date, s.shift), s); (byRig[s.rig_id] ||= []).push(s); }
-  const ord = s => s.shift_date + (s.shift === "night" ? "b" : "a");
-  for (const list of Object.values(byRig)) {
-    list.sort((a, b) => ord(a).localeCompare(ord(b)));
-    for (let i = 1; i < list.length; i++) prevOf.set(key(list[i].rig_id, list[i].shift_date, list[i].shift), list[i - 1]);
-  }
+  idx = new Map();
+  for (const s of App.data.shifts) idx.set(key(s.rig_id, s.shift_date, s.shift), s);
 }
 
 /* latest row for a rig before (date, shift) that has an end depth: a comment-only or empty shift
@@ -73,11 +67,9 @@ function shiftCells(rig, date, shift){
   const hInherit = (!r || !r.hole_name) && inherit?.hole_name ? inherit.hole_name : null;
   h += cell([...base(), "hole"], data("hole_name") + ttl(r?.hole_name ? srcT : (hInherit ? `Continues ${hInherit} from the previous shift unless you type another hole` : "")),
     r?.hole_name ? `${esc(r.hole_name)}${locked ? " " + App.src(r.source) : ""}` : (hInherit ? `<span class="muted" style="font-weight:400">${esc(hInherit)}</span>` : ""));
-  // Start (with depth-continuity check against the previous shift on the same hole)
-  const p = prevOf.get(key(rig.id, date, shift));
-  const gap = r && p && r.start_m != null && p.end_m != null && sameHole(r.hole_name, p.hole_name) && Math.abs(Number(r.start_m) - Number(p.end_m)) > 0.05;
-  const sTitle = gap ? `Gap vs previous shift (previous end ${num(p.end_m)} m) · ${srcT}` : (r?.start_m != null ? srcT : "");
-  h += cell([...base(), "num"], data("start_m") + ttl(inherit?.end_m != null ? `Starts at the previous shift's end (${num(inherit.end_m)} m) unless you type a depth` : sTitle) + (gap ? ` style="color:var(--warn);font-weight:700"` : ""),
+  // Start
+  const sTitle = r?.start_m != null ? srcT : "";
+  h += cell([...base(), "num"], data("start_m") + ttl(inherit?.end_m != null ? `Starts at the previous shift's end (${num(inherit.end_m)} m) unless you type a depth` : sTitle),
     r && r.start_m != null ? num(r.start_m) : (inherit?.end_m != null ? `<span class="muted" style="font-weight:400">${num(inherit.end_m)}</span>` : ""));
   h += cell([...base(), "num"], data("end_m") + ttl(r?.end_m != null ? srcT : ""), r ? num(r.end_m) : "");
   // Total
@@ -125,8 +117,8 @@ function render(){
   const body = dates.map(d => {
     const tot = dayTot(d), perRig = rigs.map(r => `${esc(r.id)} ${num(by[r.id]?.[d] || 0) || 0}`).join(" · ");
     const latest = d === to ? " latest" : "";
-    const night = `<tr class="night first${latest}"><td rowspan="2" class="sticky-col" title="${perRig}"><b>${App.fmt.d(d)}</b> <span class="note">${latest ? "yesterday" : App.parseDate(d).toLocaleDateString("en-CA", { weekday: "short" })}</span><div class="daytot${tot === 0 ? " zero" : ""}">${num(tot) || 0} m</div></td><td class="sub">Night</td>${rigs.map(r => shiftCells(r, d, "night")).join("")}</tr>`;
-    const day = `<tr class="${latest.trim()}"><td class="sub">Day</td>${rigs.map(r => shiftCells(r, d, "day")).join("")}</tr>`;
+    const night = `<tr class="night first${latest}"><td rowspan="2" class="sticky-col" title="${perRig}"><b>${App.fmt.d(d)}</b> <span class="note">${latest ? "yesterday" : App.parseDate(d).toLocaleDateString("en-CA", { weekday: "short" })}</span><div class="daytot${tot === 0 ? " zero" : ""}">${num(tot) || 0} m</div></td><td class="sub">🌙 Night</td>${rigs.map(r => shiftCells(r, d, "night")).join("")}</tr>`;
+    const day = `<tr class="${latest.trim()}"><td class="sub">☀️ Day</td>${rigs.map(r => shiftCells(r, d, "day")).join("")}</tr>`;
     return night + day;
   }).join("");
   const foot = `<tfoot><tr><td colspan="2" class="sticky-col">Total ${App.fmt.n(winTotal)} m</td>${rigs.map(r => `<td colspan="3"></td><td class="num">${num(App.rangeMetres(from, to, r.id))}</td><td></td>`).join("")}</tr></tfoot>`;
