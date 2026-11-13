@@ -258,9 +258,9 @@ function fillProjects(){ $("#projsel").hidden = true; }
 
 /* ---------- drawer (hole card / shift comments) ---------- */
 App.drawer = { kind: null, id: null, extra: null };
-App.openHole = id => { App.drawer = { kind: "hole", id }; App.drawer.refresh(); $("#drawer").classList.add("open"); $("#scrim").hidden = false; };
-App.openShift = (rig_id, date, shift) => { App.drawer = { kind: "shift", id: rig_id, extra: { date, shift } }; App.drawer.refresh(); $("#drawer").classList.add("open"); $("#scrim").hidden = false; };
-App.closeDrawer = () => { App.drawer = { kind: null }; $("#drawer").classList.remove("open"); $("#scrim").hidden = true; };
+App.openHole = id => { Object.assign(App.drawer, { kind: "hole", id, extra: null }); App.drawer.refresh(); $("#drawer").classList.add("open"); $("#scrim").hidden = false; };
+App.openShift = (rig_id, date, shift) => { Object.assign(App.drawer, { kind: "shift", id: rig_id, extra: { date, shift } }); App.drawer.refresh(); $("#drawer").classList.add("open"); $("#scrim").hidden = false; };
+App.closeDrawer = () => { Object.assign(App.drawer, { kind: null, id: null, extra: null }); $("#drawer").classList.remove("open"); $("#scrim").hidden = true; };
 $("#scrim").onclick = App.closeDrawer; $("#drawerClose").onclick = App.closeDrawer;
 document.addEventListener("keydown", e => { if (e.key === "Escape") App.closeDrawer(); });
 
