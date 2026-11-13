@@ -4,3 +4,4 @@ supabase/seed/*.sql
 supabase/seed/*.geojson
 *.xlsx
 .env
+__pycache__/
