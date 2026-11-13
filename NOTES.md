@@ -80,3 +80,4 @@ signed them out. Fix: flag cleared for everyone who had already signed in; the c
 SIGNED_IN event, and "Later" just closes it. Rule: `must_change_pw` is set once, at account creation, never by a
 bulk update on `auth.users`.
 - Map: hole layers are now one toggle per status (only statuses present in the project), same six on by default as the Holes page (Flagged and Cancelled off); legend unchanged.
+- Long section: buttons on the sheet use the app text colour (were black on black in dark mode); hovering an intercept in the header highlights that hole's markers on the figure (previously only marker to header).

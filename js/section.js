@@ -118,6 +118,11 @@ function wire(s, W, H){
   svg.addEventListener("pointermove", e => { if (tip.hidden) return; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = (e.clientY + 16) + "px"; });
   svg.addEventListener("pointerout", e => { if (e.target.closest("g.mk") && !e.relatedTarget?.closest?.("g.mk")) { tip.hidden = true; $$("#lsInts .int.hl").forEach(r => r.classList.remove("hl")); } });
   svg.addEventListener("pointerdown", () => { tip.hidden = true; });
+  // and the other way: hovering an intercept in the header lights up that hole's markers
+  const ints = $("#lsInts");
+  const hlMarkers = hole => $$("#lsSvg g.mk").forEach(g => { const m = (s.markers || []).find(x => x.id === g.dataset.id); g.classList.toggle("hl", !!hole && !!m && String(m.hole).toLowerCase() === hole); });
+  ints.addEventListener("pointerover", e => { const r = e.target.closest(".int"); if (!r) return; r.classList.add("hl"); hlMarkers(r.dataset.hole.toLowerCase()); });
+  ints.addEventListener("pointerout", e => { const r = e.target.closest(".int"); if (!r || r.contains(e.relatedTarget)) return; r.classList.remove("hl"); hlMarkers(null); });
   if (!can) return;
 
   $("#lsAdd").onchange = e => { state.adding = e.target.value || null; state.sel = null; render(); };

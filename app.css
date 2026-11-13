@@ -364,4 +364,7 @@ table.dense td.wrap-text.edit{cursor:text}
 .lsPop .row{display:flex;justify-content:space-between;margin-top:4px}
 .lsTip{position:fixed;z-index:61;pointer-events:none;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);padding:6px 9px;font-size:12.5px;line-height:1.3;white-space:nowrap}
 .lsInts .int.hl{background:#fff4d6;box-shadow:0 0 0 2px #e6c26a;border-radius:3px}
+.lsInts .int{cursor:default}
+.lsFig svg .mk.hl > :first-child{stroke:#2a78d6;stroke-width:3px}
+.lsSheet .btn{color:var(--fg)}   /* sheet forces #111 text; buttons follow the app theme */
 @media (max-width:900px){.lsHead{grid-template-columns:1fr 1fr}}
