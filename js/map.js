@@ -64,6 +64,7 @@ function build(){
         <input id="mSearch" type="search" placeholder="Find hole…" list="mHoles" style="width:170px" autocomplete="off"><datalist id="mHoles"></datalist>
         <button class="btn sm" id="mFitHoles">Fit to holes</button>
         <button class="btn sm" id="mFitProp">Fit to property</button>
+        <span class="sep"></span><button class="btn sm" id="mSection">Long section</button>
       </div></div>
     <div class="tiles big" id="mTiles"></div>
     <div class="maplegend" id="mLyr"></div>
@@ -78,6 +79,7 @@ function build(){
 
   $("#mFitHoles").onclick = () => fitHoles(true);
   $("#mFitProp").onclick = () => fitProperty(true);
+  $("#mSection").onclick = () => App.go("section");
   const s = $("#mSearch");
   s.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); findHole(s.value); } };
   s.onchange = () => { const v = s.value.trim().toLowerCase(); if (v && App.projectHoles().some(h => [h.ddh_name, h.planned_name].some(n => (n || "").toLowerCase() === v))) findHole(v); };
@@ -188,11 +190,18 @@ function fitHoles(manual){
   pts.length === 1 ? map.setView(pts[0], 15) : map.fitBounds(L.latLngBounds(pts), { padding: [30, 30], maxZoom: 16 });
   return true;
 }
+/* Fit to the main property: the boundary feature holding the most collars (Douay / Morris sit far off
+   to the side and would otherwise shrink the view to nothing). Ties go to the larger feature. */
 function fitProperty(manual){
-  let b = null;
-  for (const { row, layer } of Object.values(db)) if (row.kind === "boundary") { const lb = layer.getBounds(); if (lb.isValid()) b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast()); }
-  if (!b) { if (manual) App.toast(layersPromise ? "No property boundary layer" : "Layers still loading"); return false; }
-  map.fitBounds(b, { padding: [20, 20] }); return true;
+  const pts = holesWithXY().map(h => utmToLatLng(Number(h.easting), Number(h.northing)));
+  let best = null, bestN = -1, bestA = -1;
+  for (const { row, layer } of Object.values(db)) if (row.kind === "boundary") layer.eachLayer(f => {
+    const lb = f.getBounds?.(); if (!lb || !lb.isValid()) return;
+    const n = pts.filter(p => lb.contains(p)).length, a = (lb.getEast() - lb.getWest()) * (lb.getNorth() - lb.getSouth());
+    if (n > bestN || (n === bestN && a > bestA)) { best = lb; bestN = n; bestA = a; }
+  });
+  if (!best) { if (manual) App.toast(layersPromise ? "No property boundary layer" : "Layers still loading"); return false; }
+  map.fitBounds(best, { padding: [20, 20] }); return true;
 }
 function fitInitial(){ if (fitHoles(false) || fitProperty(false)) fitted = true; }
 function findByName(q){

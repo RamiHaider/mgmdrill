@@ -17,6 +17,10 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - `consumables` = the Consumables & Standby sheet per half-month period.
 - `stats_source` = the hidden STATS Source sheet; completed holes in `holes` are unioned in by the Stats page.
 - `map_layers` holds the confidential GeoJSON (property outline, historic collars, MX collars, planned traces).
+- `sections` = the Long section page (button on the Map): base image as a data URL (admin sets it with "Set base image",
+  resized to 2400 px wide in the browser), header / intercept list / markers / text labels as JSON. Marker x,y are
+  fractions of the image, so a new base export keeps the markers. Result colour = metal factor (g/t × m) from the
+  intercept text: <1 white, 1–10 green, 10–50 yellow, 50+ red, unless overridden on the marker.
 
 ## Loading data
 - `python -I tools/import_tracker.py <tracker.xlsx>` → `supabase/seed/tracker_seed.sql` (gitignored).
@@ -40,6 +44,11 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - Vibe check: read-only sheet using the register's filters/sort; Export PDF (print) and Export image (html2canvas, loaded on demand).
 - Timesheet: window ends yesterday; newest date on top, night shift above day shift; daily total in the date cell; no "Add shift entry" form, cells only; a new shift inherits the previous shift's hole and end depth as its start (grey hint) unless typed; fixed column widths so editing does not resize the table.
 - Still to do from this round: samples from MX (needs the MX API sync), MICH-result auto text (Dan to pass his prompt), CSV import of a campaign, Daily report and later pages (Dan's memo stopped at Daily report).
+
+## 13 Nov 2026
+- Daily report: Copy as image (PNG to clipboard, light theme, for pasting into email).
+- Long section page seeded from Dan's annotated image (46 markers, 23 intercepts, Eagle / Telbel labels); positions mapped onto the clean Leapfrog export via the two dykes.
+- Map: Fit to property fits the boundary holding the most collars (Joutel), not all four properties.
 
 ## Dan's second memo (12 Nov 2026, voice memo transcribed with tools/transcribe.py)
 - Vibe check: only Hole ID, Zone, Vibe, Result; Complete and In Progress holes only; Result is the widest column; rows colour-coded (Mortgage your house purple, Good/Excellent green, Ok light green, Neutral grey, Bad red). Export PDF / image share App.exportPdf / App.exportPng (core.js).
