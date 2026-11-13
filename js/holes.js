@@ -35,13 +35,6 @@ function dates(h){
   const sh = shiftsOf(h).map(s => s.shift_date).sort();
   return { start: h.start_date || sh[0] || null, end: h.end_date || (h.status === "Complete" ? sh[sh.length - 1] : null) || null, derivedStart: !h.start_date && !!sh.length, derivedEnd: !h.end_date && h.status === "Complete" && !!sh.length };
 }
-function warnings(h){
-  const out = [], fromShifts = (() => { let m = null; for (const s of shiftsOf(h)) if (s.end_m != null) m = Math.max(m ?? 0, Number(s.end_m)); return m; })();
-  if (fromShifts != null && h.current_depth_manual != null && Math.abs(fromShifts - Number(h.current_depth_manual)) > 0.5) out.push(`Timesheet ${App.fmt.n(fromShifts)} m, register ${App.fmt.n(h.current_depth_manual)} m`);
-  if (h.status === "Complete" && h.final_depth != null && fromShifts != null && Math.abs(fromShifts - Number(h.final_depth)) > 0.5) out.push(`EOH ${App.fmt.n(h.final_depth)} m, timesheet ends at ${App.fmt.n(fromShifts)} m`);
-  if (h.status === "In Progress" && !h.rig_id) out.push("No rig assigned");
-  return out;
-}
 const vibeRank = v => { const i = App.VIBES.indexOf(v); return i < 0 ? null : i; };
 function rowValue(h, key){
   switch (key) {
@@ -130,7 +123,7 @@ function registerHtml(list){
     <p class="note">Click a DDH or planned ID for the hole card and comments. ${App.canEdit ? "Shaded cells edit in place (Enter saves, Esc cancels). " : ""}Current depth is the deepest timesheet end; Final fills itself when a hole is marked Complete; Started / Ended fall back to the timesheet (shown in grey) until typed. Order sets a planned hole's place in a rig's queue.</p>`;
 }
 function rowHtml(h){
-  const rig = rigOf(h), d = dates(h), warn = warnings(h), ed = App.canEdit;
+  const rig = rigOf(h), d = dates(h), ed = App.canEdit;
   const td = (k, html, cls = "") => `<td class="${cls} ${ed && EDIT[k] ? "edit" : ""}" ${ed && EDIT[k] ? `data-cell="${h.id}|${k}"` : ""}>${html}</td>`;
   const ordering = state.ordering === h.id;
   let order = "";
@@ -148,7 +141,7 @@ function rowHtml(h){
     <td class="num">${order}</td>
     ${td("azimuth", App.fmt.n(h.azimuth), "num")}${td("dip", App.fmt.n(h.dip), "num")}${td("planned_depth", App.fmt.n(h.planned_depth), "num")}
     ${td("start_length", App.fmt.n(h.start_length), "num")}
-    <td class="num" ${warn.length ? `title="${esc(warn.join("\n"))}" style="color:var(--warn)"` : ""}><b>${App.fmt.n(App.holeDepth(h))}</b>${warn.length ? " ⚠" : ""}</td>
+    <td class="num"><b>${App.fmt.n(App.holeDepth(h))}</b></td>
     ${td("final_depth", App.fmt.n(h.final_depth), "num")}${td("n_samples", App.fmt.n(h.n_samples), "num")}
     ${td("vibe", App.vibe(h.vibe))}
     ${td("start_date", `<span class="${d.derivedStart ? "muted" : ""}">${App.fmt.d(d.start)}</span>`)}
