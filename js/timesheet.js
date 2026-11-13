@@ -97,6 +97,8 @@ function render(){
   if (st.editing) { st.dirty = true; return; }
   st.dirty = false;
   const el = App.$("#view-timesheet");
+  // keep the table where the user left it across re-renders (no jump after saving a cell)
+  const oldWrap = App.$(".tablewrap", el), scroll = oldWrap ? { x: oldWrap.scrollLeft, y: oldWrap.scrollTop } : null;
   buildIndex();
   const [from, to] = range();
   const dates = datesDesc(from, to);
@@ -143,6 +145,8 @@ function render(){
     ${rigs.length ? `<div class="tablewrap tall"><table class="ts dense">${colgroup}<thead>${head1}${head2}</thead><tbody>${body}</tbody>${foot}</table></div>` : `<div class="empty">No rigs selected.</div>`}
     <datalist id="tsHoles">${holeNames.map(n => `<option value="${esc(n)}">`).join("")}</datalist>`;
   wire(el);
+  const wrap = App.$(".tablewrap", el);
+  if (wrap && scroll) { wrap.scrollLeft = scroll.x; wrap.scrollTop = scroll.y; }
 }
 
 function wire(el){
@@ -171,7 +175,7 @@ function startEdit(td){
   if (field === "hole_name") input.setAttribute("list", "tsHoles");
   else if (field !== "comment") input.inputMode = "decimal";
   st.editing = true;
-  td.onclick = null; td.textContent = ""; td.appendChild(input); input.focus(); input.select();
+  td.onclick = null; td.textContent = ""; td.appendChild(input); input.focus({ preventScroll: true }); input.select();
   let done = false;
   const finish = async save => {
     if (done) return; done = true;
