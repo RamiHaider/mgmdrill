@@ -167,7 +167,7 @@ function startEdit(td){
   if (field === "hole_name") input.setAttribute("list", "tsHoles");
   else if (field !== "comment") input.inputMode = "decimal";
   st.editing = true;
-  td.onclick = null; td.textContent = ""; td.appendChild(input); input.focus({ preventScroll: true }); input.select();
+  td.onclick = null; td.textContent = ""; td.classList.add("editing"); td.appendChild(input); input.focus({ preventScroll: true }); input.select();
   let done = false;
   const finish = async save => {
     if (done) return; done = true;
