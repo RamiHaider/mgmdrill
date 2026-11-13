@@ -217,8 +217,9 @@ App.current = null;
 App.route = function(){
   const h = location.hash.replace("#", "").split("?")[0];
   let v = VIEWS.includes(h) ? h : "map";
-  if (!App.canView) v = "login";
+  if (!App.canView || App.pwSetup) v = "login";
   App.current = v;
+  $("#loginForm").hidden = !!App.pwSetup; $("#pwForm").hidden = !App.pwSetup;
   for (const x of VIEWS) { const el = $("#view-" + x); if (el) el.hidden = x !== v; }
   $("#view-login").hidden = v !== "login";
   $$("#nav a").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
@@ -310,15 +311,31 @@ $("#loginForm").onsubmit = async e => {
 $("#lReset").onclick = async () => {
   const email = $("#lEmail").value.trim(); if (!email) return showMsg("#loginMsg", "Type your email first.", "err");
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  showMsg("#loginMsg", error ? error.message : "Check your email for a reset link.", error ? "err" : "ok");
+  showMsg("#loginMsg", error ? error.message : "If that email has an account, a link to choose your password is on its way (check junk too). It is valid for one hour.", error ? "err" : "ok");
+};
+/* password setup: shown after the emailed link lands (PASSWORD_RECOVERY) or from the Password button in the top bar */
+App.pwSetup = false;
+const openPw = () => { App.pwSetup = true; $("#pwNew").value = $("#pwAgain").value = ""; showMsg("#pwMsg", ""); App.route(); $("#pwNew").focus(); };
+const closePw = () => { App.pwSetup = false; App.route(); };
+$("#btnPw").onclick = openPw;
+$("#pwCancel").onclick = closePw;
+$("#pwForm").onsubmit = async e => {
+  e.preventDefault();
+  const a = $("#pwNew").value, b = $("#pwAgain").value;
+  if (a.length < 8) return showMsg("#pwMsg", "Use at least 8 characters.", "err");
+  if (a !== b) return showMsg("#pwMsg", "The two passwords differ.", "err");
+  showMsg("#pwMsg", "Saving…");
+  const { error } = await sb.auth.updateUser({ password: a });
+  if (error) return showMsg("#pwMsg", error.message, "err");
+  App.toast("Password saved. You are signed in."); closePw();
 };
 $("#btnLogout").onclick = async () => { await sb.auth.signOut({ scope: "local" }); };
 let authSeq = 0;
 sb.auth.onAuthStateChange((event, s) => {
   App.session = s; const seq = ++authSeq;
+  if (event === "PASSWORD_RECOVERY") App.pwSetup = true;
   setTimeout(async () => {
     if (seq !== authSeq) return;
-    if (event === "PASSWORD_RECOVERY") { const np = prompt("Choose a new password (8+ characters):"); if (np) { const { error } = await sb.auth.updateUser({ password: np }); App.toast(error ? error.message : "Password updated"); } }
     if (s) { const { data } = await sb.rpc("my_role"); App.role = data || null; } else App.role = null;
     if (s && !App.role) showMsg("#loginMsg", "This account is signed in but has no access yet. Ask Rami or Dan to add you.", "err");
     if (event === "SIGNED_OUT") { App.closeDrawer(); App.toast("Signed out"); }
@@ -327,7 +344,7 @@ sb.auth.onAuthStateChange((event, s) => {
       if (App.canView) { fillProjects(); $("#whoName").textContent = s.user.email.split("@")[0]; $("#whoRole").textContent = App.role; }
     } catch (e) { App.err(e); }
     App.subscribe();
-    if (App.canView && (!location.hash || location.hash === "#login")) location.hash = "#map";
+    if (App.canView && (!location.hash || location.hash === "#login" || location.hash.includes("access_token"))) history.replaceState(null, "", "#map");
     App.route();
   }, 0);
 });

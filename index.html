@@ -31,7 +31,7 @@
     <div class="who" id="who" hidden>
       <select id="projsel" class="projsel" title="Project"></select>
       <span id="whoName"></span><span class="role" id="whoRole"></span>
-      <button class="btn sm" id="btnLogout">Sign out</button>
+      <button class="btn sm" id="btnPw" title="Change your password">Password</button><button class="btn sm" id="btnLogout">Sign out</button>
     </div>
   </div>
 </header>
@@ -42,9 +42,16 @@
     <form id="loginForm" class="card">
       <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
       <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
-      <div class="actions"><button class="btn primary" type="submit">Sign in</button><button class="btn ghost sm" type="button" id="lReset">Forgot password</button></div>
+      <div class="actions"><button class="btn primary" type="submit">Sign in</button><button class="btn ghost sm" type="button" id="lReset">First time here / forgot password</button></div>
       <div id="loginMsg" class="msg" hidden></div>
-      <p class="note center">Access is by invitation. Ask the project geologist or the database manager.</p>
+      <p class="note center">Access is by invitation. First time? Type your work email and click <b>First time here</b>: a link to choose your password is emailed to you.</p>
+    </form>
+    <form id="pwForm" class="card" hidden>
+      <h3>Choose your password</h3>
+      <div class="field"><label for="pwNew">New password (8+ characters)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="field"><label for="pwAgain">Repeat it</label><input id="pwAgain" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="actions"><button class="btn primary" type="submit">Save password</button><button class="btn ghost sm" type="button" id="pwCancel">Cancel</button></div>
+      <div id="pwMsg" class="msg" hidden></div>
     </form>
   </section>
 
