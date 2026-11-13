@@ -9,7 +9,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const IMDEX = "https://api.imdexhub.com";
-const BUDGET_MS = 100_000; // stop paging before the function's wall clock runs out; the cursor resumes next tick
+const BUDGET_MS = 110_000; // stop paging before the function's wall clock runs out; the cursor resumes next tick
 const r2 = (x: number | null | undefined) => (x == null || Number.isNaN(x)) ? null : Math.round(x * 100) / 100;
 const g = (x: number) => String(r2(x));
 
@@ -34,10 +34,14 @@ async function syncSurveys(sec: Secrets, t0: number) {
   const H = { Authorization: "ApiKey " + sec.imdex_api_key, "Ocp-Apim-Subscription-Key": sec.imdex_apim_key };
   const holes = await holeMap();
   const projects = (await getJson(`${IMDEX}/plan/v1/projects?$top=100`, H)).value ?? [];
+  // HUB-IQ's first page per cursor can take a minute, so each tick handles ONE project: the one synced longest ago.
+  const { data: states } = await sb.from("sync_state").select("key,value,updated_at").like("key", "imdex:%");
+  const stMap = new Map((states ?? []).map((x: any) => [x.key, x]));
+  projects.sort((a: any, b: any) => (stMap.get(`imdex:${a.Id}`)?.updated_at ?? "").localeCompare(stMap.get(`imdex:${b.Id}`)?.updated_at ?? ""));
   const out: string[] = [];
-  for (const p of projects) {
+  for (const p of projects.slice(0, 1)) {
     const key = `imdex:${p.Id}`;
-    const { data: st } = await sb.from("sync_state").select("value").eq("key", key).maybeSingle();
+    const st = stMap.get(key);
     let cursor: { LastModified: string; LastId: string } | null = st?.value?.LastModified ? st.value : null;
     let url = `${IMDEX}/survey/v1/surveys?projectId=${p.Id}&$top=500` +
       (cursor ? `&$deltaToken=${encodeURIComponent(btoa(JSON.stringify(cursor)).replace(/=+$/, ""))}` : "");
