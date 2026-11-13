@@ -64,7 +64,7 @@ function build(){
         <input id="mSearch" type="search" placeholder="Find hole…" list="mHoles" style="width:170px" autocomplete="off"><datalist id="mHoles"></datalist>
         <button class="btn sm" id="mFitHoles">Fit to holes</button>
         <button class="btn sm" id="mFitProp">Fit to property</button>
-        <span class="sep"></span><button class="btn sm" id="mSection">Long section</button>
+        
       </div></div>
     <div class="tiles big" id="mTiles"></div>
     <div class="maplegend" id="mLyr"></div>
@@ -79,7 +79,6 @@ function build(){
 
   $("#mFitHoles").onclick = () => fitHoles(true);
   $("#mFitProp").onclick = () => fitProperty(true);
-  $("#mSection").onclick = () => App.go("section");
   const s = $("#mSearch");
   s.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); findHole(s.value); } };
   s.onchange = () => { const v = s.value.trim().toLowerCase(); if (v && App.projectHoles().some(h => [h.ddh_name, h.planned_name].some(n => (n || "").toLowerCase() === v))) findHole(v); };
