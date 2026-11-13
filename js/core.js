@@ -398,7 +398,7 @@ sb.auth.onAuthStateChange((event, s) => {
     App.route();
   }, 0);
 });
-/* recovery link with a token hash (email template uses {{ .TokenHash }}): verified here, in the page, so a mail
+/* invite / recovery link with a token hash (sent by the invite-member function or the email template {{ .TokenHash }}): verified here, in the page, so a mail
    scanner that pre-opens the link (Outlook Safe Links) does not burn the one-time token before the person clicks */
 (async () => {
   const q = new URLSearchParams(location.search), th = q.get("token_hash"), type = q.get("type");
@@ -406,7 +406,8 @@ sb.auth.onAuthStateChange((event, s) => {
   history.replaceState(null, "", location.pathname);
   const { error } = await sb.auth.verifyOtp({ token_hash: th, type: type || "recovery" });
   if (error) return showMsg("#loginMsg", "This link is invalid or has expired. Use Forgot password to get a new one.", "err");
-  openPw(false);
+  /* an invite lands here with no password yet, so the card cannot be dismissed; a recovery link can */
+  openPw(type === "invite");
 })();
 App.route();
 })();

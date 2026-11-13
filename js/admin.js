@@ -12,9 +12,9 @@ function render(){
     <div class="cols">
       <div class="card"><header><h3>Members</h3><span class="tag">${members.length}</span></header>
         <div class="tablewrap"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody>
-          ${members.map(m => `<tr><td class="mono">${esc(m.email)}</td><td>${esc(m.name)}</td><td><select data-role="${esc(m.email)}" style="width:auto"><option ${m.role === "admin" ? "selected" : ""}>admin</option><option ${m.role === "editor" ? "selected" : ""}>editor</option><option ${m.role === "viewer" ? "selected" : ""}>viewer</option></select></td><td><button class="btn xs danger" data-rm="${esc(m.email)}">remove</button></td></tr>`).join("") || `<tr><td colspan="4" class="empty">Nobody yet.</td></tr>`}</tbody></table></div>
+          ${members.map(m => `<tr><td class="mono">${esc(m.email)}</td><td>${esc(m.name)}</td><td><select data-role="${esc(m.email)}" style="width:auto"><option ${m.role === "admin" ? "selected" : ""}>admin</option><option ${m.role === "editor" ? "selected" : ""}>editor</option><option ${m.role === "viewer" ? "selected" : ""}>viewer</option></select></td><td style="white-space:nowrap"><button class="btn xs" data-inv="${esc(m.email)}" title="Email a fresh set-password link">send link</button> <button class="btn xs danger" data-rm="${esc(m.email)}">remove</button></td></tr>`).join("") || `<tr><td colspan="4" class="empty">Nobody yet.</td></tr>`}</tbody></table></div>
         <form id="mAdd" class="row"><input name="email" type="email" placeholder="email" required class="grow"><input name="name" placeholder="name" style="max-width:140px"><select name="role" style="width:auto"><option>viewer</option><option>editor</option><option>admin</option></select><button class="btn primary sm">Add</button></form>
-        <p class="note">Adding a member grants access once they have a login. Create the login in Supabase → Authentication → Users → <b>Add user</b> (same email, auto-confirm, a temporary password, and user metadata <code>{"must_change_pw": true}</code>); the first sign-in then asks them to choose their own password (they can press Later). <b>Never set that flag on an existing account</b>: on Nov 13 it was set on everyone and signed every user out. <i>Forgot password</i> on the sign-in page emails a reset link. Roles: admin = everything, editor = enter metres, geology, holes, reports, consumables; viewer = read and comment.</p>
+        <p class="note">Adding a member creates their login and emails them a one-time link (valid 24 h) to choose a password; the role takes effect right away, including when you change it in the table. <b>send link</b> emails a fresh link to someone who lost theirs. Roles: admin = everything, editor = enter metres, geology, holes, reports, consumables; viewer = read and comment.</p>
       </div>
       <div class="card"><header><h3>Targets &amp; rules</h3></header>
         <form id="tForm" class="form">
@@ -51,7 +51,8 @@ function render(){
 
   $$("[data-role]", el).forEach(s => s.onchange = () => go(App.update("members", { email: s.dataset.role }, { role: s.value }), ["members"]));
   $$("[data-rm]", el).forEach(b => b.onclick = () => { if (App.confirm(`Remove ${b.dataset.rm}? Their login stays but loses access.`)) go(App.remove("members", { email: b.dataset.rm }), ["members"]); });
-  $("#mAdd").onsubmit = e => { e.preventDefault(); const fd = new FormData(e.target); go(App.insert("members", { email: String(fd.get("email")).trim().toLowerCase(), name: fd.get("name") || "", role: fd.get("role") }), ["members"]); };
+  $("#mAdd").onsubmit = e => { e.preventDefault(); const fd = new FormData(e.target); invite({ email: String(fd.get("email")).trim().toLowerCase(), name: fd.get("name") || "", role: fd.get("role") }, e.target.querySelector("button")); };
+  $$("[data-inv]", el).forEach(b => b.onclick = () => { const m = members.find(x => x.email === b.dataset.inv); if (m) invite({ email: m.email, name: m.name, role: m.role, resend: true }, b); });
   $("#tForm").onsubmit = e => { e.preventDefault(); const fd = new FormData(e.target);
     const targets = { m_per_rig_day: Number(fd.get("m_per_rig_day")), program_m: Number(fd.get("program_m")), program_holes: Number(fd.get("program_holes")), season_start: fd.get("season_start") };
     const split = v => String(v || "").split(",").map(x => x.trim()).filter(Boolean);
@@ -62,6 +63,18 @@ function render(){
   $$("[data-proj]", el).forEach(c => c.onchange = () => go(App.update("projects", { id: c.dataset.proj }, { active: c.checked }), null));
   $("#pAdd").onsubmit = e => { e.preventDefault(); const fd = new FormData(e.target); go(App.insert("projects", { id: String(fd.get("id")).trim().toLowerCase(), name: fd.get("name"), sort: App.data.projects.length + 1 }), null); };
   App.sb.from("sync_runs").select("*").order("started_at", { ascending: false }).limit(20).then(({ data }) => { const l = $("#syncLog"); if (!l) return; l.innerHTML = (data || []).map(r => `<div class="cmt"><div class="meta">${esc(r.kind)} · ${App.fmt.dt(r.started_at)} · <b>${esc(r.status)}</b></div><div class="body small">${esc(r.message)}</div></div>`).join("") || `<div class="empty">No sync runs yet.</div>`; });
+}
+/* add / re-invite: the invite-member Edge Function upserts the members row, creates the login if needed and emails a
+   set-password link (recovery link if the account already exists). The members table stays the source of roles. */
+async function invite(body, btn){
+  const label = btn ? btn.textContent : ""; if (btn) { btn.disabled = true; btn.textContent = "sending…"; }
+  try {
+    const { data, error } = await App.sb.functions.invoke("invite-member", { body });
+    if (error) throw new Error((await error.context?.json?.().catch(() => null))?.error || error.message);
+    if (data?.error && !data.ok) throw new Error(data.error);
+    App.toast(data.emailed ? `${body.resend ? "Link" : "Invitation"} emailed to ${body.email}` : `Saved, but no email went out: ${data.error || "unknown"}`);
+    await App.reload(["members"]);
+  } catch (e) { App.err(e); } finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
 }
 async function go(p, parts){ try { await p; App.toast("Saved"); if (parts) await App.reload(parts); else { App.data.projects = await App.sb.from("projects").select("*").order("sort").then(r => r.data || []); App.render(); } } catch (e) { App.err(e); } }
 App.view("admin", { render });

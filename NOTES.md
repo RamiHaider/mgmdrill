@@ -3,8 +3,14 @@
 Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinlwnojwxznpisav) · Hosting: GitHub Pages from `main`.
 
 ## Access
-- Nobody sees anything without signing in. Members are rows in `members` (email + role) and need a login
-  created in Supabase → Authentication → Users (welcome email, they set their own password).
+- Nobody sees anything without signing in. Members are rows in `members` (email + role). Since 13 Nov 2026 the Admin
+  tab's Add button calls the Edge Function `invite-member` (supabase/functions/invite-member): it upserts the row,
+  creates the auth user if missing (`generateLink` invite, or recovery for an existing account), and emails a
+  one-time `?token_hash=…&type=invite` link via Resend (secret RESEND_API_KEY; from noreply@mgmcamp.com, the domain
+  verified in Resend, until mgmdrill.com is verified too). The page verifies the token itself (core.js) and forces
+  the set-password card for invites. "send link" in the members table re-sends. Roles are read live from `members`
+  by my_role() and RLS, so changing the dropdown is the permission change. Creating users in the dashboard or by SQL
+  (private/create_users*.sql) is no longer needed.
 - Roles: **admin** (everything, including the Admin tab), **editor** (metres, geology, holes, reports,
   consumables, vibe, sequence), **viewer** (read everything, add comments).
 
