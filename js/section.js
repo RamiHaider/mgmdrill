@@ -93,7 +93,7 @@ function render(){
       </div>
       <div class="lsFoot noprint">${s.updated_by ? `Last edited by ${esc(s.updated_by.split("@")[0])} ${App.fmt.dt(s.updated_at)}` : ""}</div>
     </div>
-    <div id="lsPop" class="lsPop" hidden></div>`;
+    <div id="lsPop" class="lsPop" hidden></div><div id="lsTip" class="lsTip" hidden></div>`;
   wire(s, W, H);
   if (img === undefined) loadImage(s);
 }
@@ -104,6 +104,20 @@ function wire(s, W, H){
   $("#lsPng").onclick = () => { state.sel = null; closePop(); render(); App.exportPng($("#lsSheet"), "long-section"); };
   $("#lsCopy").onclick = () => { state.sel = null; closePop(); render(); App.copyPng($("#lsSheet")); };
   const base = $("#lsBase"); if (base) { base.onclick = () => $("#lsFile").click(); $("#lsFile").onchange = e => setBase(s, e.target.files[0]); }
+
+  // hover: full hole name, intercept and state; the matching intercept in the header lights up
+  const tip = $("#lsTip");
+  svg.addEventListener("pointerover", e => {
+    const g = e.target.closest("g.mk"); if (!g || state.drag) return;
+    const m = (s.markers || []).find(x => x.id === g.dataset.id); if (!m) return;
+    const it = interceptFor(s, m.hole), mf = parseMF(it?.text);
+    tip.innerHTML = `<b>${esc(m.hole)}</b><div>${it ? esc(it.text) + (mf != null ? ` <span class="muted">· MF ${mf.toFixed(1)}</span>` : "") : (m.kind === "result" ? "No intercept listed" : KIND[m.kind])}</div>${it && m.kind !== "result" ? `<div class="muted">${KIND[m.kind]}</div>` : ""}`;
+    tip.hidden = false;
+    $$("#lsInts .int").forEach(r => r.classList.toggle("hl", r.dataset.hole.toLowerCase() === String(m.hole).toLowerCase()));
+  });
+  svg.addEventListener("pointermove", e => { if (tip.hidden) return; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = (e.clientY + 16) + "px"; });
+  svg.addEventListener("pointerout", e => { if (e.target.closest("g.mk") && !e.relatedTarget?.closest?.("g.mk")) { tip.hidden = true; $$("#lsInts .int.hl").forEach(r => r.classList.remove("hl")); } });
+  svg.addEventListener("pointerdown", () => { tip.hidden = true; });
   if (!can) return;
 
   $("#lsAdd").onchange = e => { state.adding = e.target.value || null; state.sel = null; render(); };
