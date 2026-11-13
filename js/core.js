@@ -17,7 +17,7 @@ const App = window.App = {
   get canEdit(){ return this.role === "admin" || this.role === "editor"; },
   get canView(){ return !!this.role; },
   project: localStorage.getItem("mgmdrill.project") || "joutel",
-  data: { projects: [], rigs: [], holes: [], shifts: [], reports: [], rigDaily: [], modules: [], comments: [], consumables: [], stats: [], layers: [], settings: null, members: [], sections: [] },
+  data: { projects: [], rigs: [], holes: [], shifts: [], reports: [], rigDaily: [], modules: [], comments: [], consumables: [], stats: [], layers: [], settings: null, members: [], sections: [], samples: [] },
   loaded: false,
   views: {},
   view(name, def){ this.views[name] = def; },
@@ -157,11 +157,13 @@ App.commentsForShift = (rig_id, date, shift) => App.data.comments.filter(c => c.
 
 /* ---------- data loading ---------- */
 async function q(p){ const { data, error } = await p; if (error) throw error; return data || []; }
+/* tables bigger than the 1000-row API page: fetch page by page */
+async function qAll(make, page = 1000){ const out = []; for (let i = 0; ; i += page) { const rows = await q(make().range(i, i + page - 1)); out.push(...rows); if (rows.length < page) return out; } }
 const SEC_COLS = "id,name,header,intercepts,markers,texts,image_w,image_h,sort,updated_by,updated_at"; // the base image is fetched by the view
 App.loadAll = async function(){
   if (!App.canView) { App.loaded = false; return; }
   const d = App.data;
-  const [projects, rigs, holes, shifts, reports, rigDaily, modules, comments, consumables, stats, settings, sections] = await Promise.all([
+  const [projects, rigs, holes, shifts, reports, rigDaily, modules, comments, consumables, stats, settings, sections, samples] = await Promise.all([
     q(sb.from("projects").select("*").order("sort")),
     q(sb.from("rigs").select("*").order("sort")),
     q(sb.from("holes").select("*").order("created_at")),
@@ -174,8 +176,9 @@ App.loadAll = async function(){
     q(sb.from("stats_source").select("*")),
     q(sb.from("settings").select("*").eq("id", "main").maybeSingle()),
     q(sb.from("sections").select(SEC_COLS).order("sort")).catch(() => []),
+    qAll(() => sb.from("samples").select("*").order("sample_no")).catch(() => []),
   ]);
-  Object.assign(d, { projects, rigs, holes, shifts, reports, rigDaily, modules, comments, consumables, stats, settings: settings || null, sections });
+  Object.assign(d, { projects, rigs, holes, shifts, reports, rigDaily, modules, comments, consumables, stats, settings: settings || null, sections, samples });
   if (App.isAdmin) d.members = await q(sb.from("members").select("*").order("email")).catch(() => []);
   App.loaded = true;
 };
@@ -195,11 +198,12 @@ App.reload = async function(parts){
     members: () => q(sb.from("members").select("*").order("email")).then(x => d.members = x),
     stats: () => q(sb.from("stats_source").select("*")).then(x => d.stats = x),
     sections: () => q(sb.from("sections").select(SEC_COLS).order("sort")).then(x => d.sections = x),
+    samples: () => qAll(() => sb.from("samples").select("*").order("sample_no")).then(x => d.samples = x),
   };
   await Promise.all((parts || Object.keys(map)).map(k => map[k]()));
   App.render();
 };
-const TABLE_PART = { holes: "holes", shift_entries: "shifts", daily_reports: "reports", rig_daily: "rigDaily", report_modules: "modules", comments: "comments", consumables: "consumables", settings: "settings", rigs: "rigs", sections: "sections" };
+const TABLE_PART = { holes: "holes", shift_entries: "shifts", daily_reports: "reports", rig_daily: "rigDaily", report_modules: "modules", comments: "comments", consumables: "consumables", settings: "settings", rigs: "rigs", sections: "sections", samples: "samples" };
 let channel = null, pending = new Set(), pendingT = null;
 App.subscribe = function(){
   if (channel) { sb.removeChannel(channel); channel = null; }
@@ -227,7 +231,7 @@ App.remove = async function(table, match){
 App.insert = async function(table, row){ const { data, error } = await sb.from(table).insert(row).select(); if (error) throw error; return data; };
 
 /* ---------- routing ---------- */
-const VIEWS = ["map", "section", "holes", "timesheet", "production", "report", "sequence", "stats", "consumables", "admin"];
+const VIEWS = ["map", "section", "holes", "timesheet", "production", "cutting", "report", "sequence", "stats", "consumables", "admin"];
 App.current = null;
 App.route = function(){
   const h = location.hash.replace("#", "").split("?")[0];

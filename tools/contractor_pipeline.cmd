@@ -8,4 +8,5 @@ py -3 -I tools\outlook_export.py --only mail --app e64ce77b-acdd-4faa-871a-9d799
 py -3 -I tools\file_daily_reports.py --tidy >> "%LOG%" 2>&1
 cd /d "%USERPROFILE%\Docs\mgm-drill"
 py -3 -I tools\contractor_sync.py --no-rjll >> "%LOG%" 2>&1
+py -3 -I tools\cutting_sync.py >> "%LOG%" 2>&1
 echo exit %ERRORLEVEL% >> "%LOG%"

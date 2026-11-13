@@ -51,6 +51,24 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - Without `--no-rjll` the script also loads RJLL (API first, filed PDFs as fallback) - kept as a manual backup path.
 - Spektra sheet 2026-11-10 has T4 = 9 Nov (their typo); the sheet name is taken as the date.
 
+## Cutting backlog (13 Nov 2026)
+- Tab **Cutting**: how many samples (and metres) are waiting to be sawn, over time and per hole. Source = the samplers'
+  workbook `Joutel Project/Drilling/Diamond Drill/2026-2027/Samples/Feuille_de_scie.xlsx` (one sheet per hole with
+  From / To / Sample Number / Control Type / Sac and, when they add it, a `Date Scie` column; `FA` + `FAWR` = samples shipped
+  with "Date d'envoi"; sheet `Date Scie` = daily log, columns Date / Sample From / Sample To, one row per range cut that day).
+- Laptop job `tools/cutting_sync.py` (in `contractor_pipeline.cmd`, so it runs at 00:00 and 12:00) rebuilds table `samples`
+  (one row per sample, upsert on sample_no, vanished rows deleted, `first_seen` kept). Rules from Rami: holes before JO-26-25
+  are assumed sent (`cut_source = assumed`, never counted); cut date = the hole sheet's Date Scie, else the Date Scie log,
+  else the shipping date (`cut_source` says which); samples without an interval (blanks, standards, the old sheets up to
+  JO-26-28) carry no length but still count. Run `py -3 -I tools/cutting_sync.py --dry-run` to see the parse; each run is a
+  `sync_runs` row (kind `cutting`). The REST API pages at 1000 rows; both the script and core.js page through it.
+- A sample enters the backlog on the day its hole was drilled past its To depth (from `shift_current`), else the hole's
+  start date, else the day the sync first saw it. So the backlog curve before the sync existed is reconstructed from
+  drilling dates and shipping dates, and gets exact once the samplers fill Date Scie.
+- First load 13 Nov: 5,436 samples on 28 holes, 986 waiting (960 m) on JO-26-40/41/41W/42/43/44 plus 125 JO-26-25 rows with
+  no interval and no shipping date (JO-26-25 is not "before" 25, so they count; bump `ASSUMED_BEFORE` in the script if they
+  were sent).
+
 ## Not connected yet
 - MX Deposit result summary (MICH = HB + F1; I3m-l is microgabbro, not MICH) and samples per hole.
 - Laptop Spektra job signs in as the first admin in private/accounts.json whose password still works (Rami's and Dan's
