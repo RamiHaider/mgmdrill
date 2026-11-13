@@ -67,3 +67,10 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - Stats: Export PDF and Export image.
 - One programme: the Joutel/Douay header switch is gone; every page shows all projects, Holes and Stats filter by project.
 - tools/transcribe.py: local faster-whisper (small model, CPU) for Dan's voice memos; memos and transcripts live in private/memos (gitignored).
+
+## Incident, 13 Nov 2026: everyone signed out and asked for a new password
+Cause: the "temporary password" flow shipped at 08:22 and `must_change_pw: true` was set on every existing account,
+not only the new ones. The card then opened for Rami, Dan, Larissa, Colin, Pascal and Ian mid-session, and Cancel
+signed them out. Fix: flag cleared for everyone who had already signed in; the card now only opens on a fresh
+SIGNED_IN event, and "Later" just closes it. Rule: `must_change_pw` is set once, at account creation, never by a
+bulk update on `auth.users`.

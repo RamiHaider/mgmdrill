@@ -339,7 +339,8 @@ App.pwSetup = false; App.pwForced = false;
 const openPw = forced => { App.pwSetup = true; App.pwForced = !!forced; $("#pwNew").value = $("#pwAgain").value = ""; showMsg("#pwMsg", ""); App.route(); $("#pwNew").focus(); };
 const closePw = () => { App.pwSetup = App.pwForced = false; App.route(); };
 $("#btnPw").onclick = () => openPw(false);
-$("#pwCancel").onclick = () => App.pwForced ? sb.auth.signOut({ scope: "local" }).then(closePw) : closePw();
+/* "Later" never signs anyone out: the card comes back on the next sign-in until a password is saved */
+$("#pwCancel").onclick = () => closePw();
 $("#pwForm").onsubmit = async e => {
   e.preventDefault();
   const a = $("#pwNew").value, b = $("#pwAgain").value;
@@ -355,7 +356,8 @@ let authSeq = 0;
 sb.auth.onAuthStateChange((event, s) => {
   App.session = s; const seq = ++authSeq;
   if (event === "PASSWORD_RECOVERY") App.pwSetup = true;
-  if (s?.user?.user_metadata?.must_change_pw) { App.pwSetup = App.pwForced = true; }
+  /* only on a fresh sign-in, never on a token refresh of an existing session (that is what signed everyone out on Nov 13) */
+  if (event === "SIGNED_IN" && s?.user?.user_metadata?.must_change_pw) { App.pwSetup = App.pwForced = true; }
   if (!s) App.pwSetup = App.pwForced = false;
   setTimeout(async () => {
     if (seq !== authSeq) return;
