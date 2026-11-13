@@ -96,7 +96,6 @@ function asText(){
   return L.filter(l => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
 }
 App.view("report", { render });
-})();
 
 // Snapshot the report as a PNG and put it on the clipboard (falls back to a download where the browser cannot write images).
 async function copyPng(btn){
@@ -117,3 +116,4 @@ async function copyPng(btn){
     }
   } catch (e) { App.err(e); } finally { btn.disabled = false; btn.textContent = label; }
 }
+})();
