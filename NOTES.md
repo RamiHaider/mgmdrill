@@ -27,26 +27,35 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
 - `python -I tools/export_layers.py` → `supabase/seed/layers_seed.sql` (gitignored).
 - Paste each file into the Supabase SQL editor. Both are wrapped in one transaction.
 
-## Contractor feed (connected 13 Nov 2026)
-- `tools/contractor_pipeline.cmd` runs at 12:00 and 00:00 (Windows Task Scheduler, task "mgmdrill contractor sync",
-  runs when Rami is logged on, catches up if missed): Outlook export (`Desktop/MGM/tools/outlook_export.py`) →
-  file the RJLL PDFs / Spektra workbook on SharePoint (`file_daily_reports.py --tidy`) → `tools/contractor_sync.py`.
-  Log: `private/contractor_sync.log`; each run also writes a `sync_runs` row (Admin tab).
-- RJLL comes from their portal API (`https://portail.rjll.ca/api.php?type=json&token=...&dateFrom=&dateTo=`, JSON or
-  XML, token given to Dan by RJLL's programmer on 30 Jun 2026, kept in the user env var `RJLL_API_TOKEN`, never in the
-  repo). All reports are loaded, pending ones carry "RJLL pending" in the comment until approved; the filed PDFs are only
-  the fallback when the API is down. The API also carries hours per activity, materials left in hole, equipment and gyro
-  shots per report (not used yet; consumables could come from it).
-- `contractor_sync.py` builds one row per shift (hole at end of shift, from/to, total = RJLL "Forés" incl. casing,
-  reaming = 0 m; other holes / hole done / reaming in the comment) from the API (or PDFs) and from the
-  Spektra daily sheets (JOUR rows 7-10, NUIT rows 12-15). Inserts rows with source `rjll` / `spektra`, signed in as
-  an admin (private/accounts.json); unchanged shifts are skipped, so it is safe to re-run. `--dry-run`, `--since`.
+## Feeds (13 Nov 2026)
+**Cloud, every 15 min (Supabase pg_cron -> pg_net -> Edge Function `sync-feeds`, source `supabase/functions/sync-feeds/index.ts`):**
+- `sync-rjll` (:07/:22/:37/:52): RJLL portal API (`https://portail.rjll.ca/api.php?type=json&token=...&dateFrom=&dateTo=`, token from
+  RJLL's programmer to Dan on 30 Jun 2026), last 20 days, one `shift_entries` row per shift with source `rjll` (hole at end of
+  shift, from/to, total = RJLL "Forés" incl. casing, reaming = 0 m; other holes / hole done / reaming in the comment; pending
+  reports carry "RJLL pending" until approved). Unchanged shifts are skipped, so it is idempotent.
+- `sync-surveys` (:00/:15/:30/:45): IMDEXHUB-IQ `/survey/v1/surveys` for one project per tick (the one synced longest ago),
+  incremental with a `$deltaToken` built from the last DateUpdated (`sync_state` key `imdex:<projectId>`), all tools and all
+  statuses into `surveys`. HUB-IQ's first page per call can take a minute; the function stops paging at 110 s and resumes.
+  Hole cards show OMNIx42 only, Approved + Pending (PreviouslyApproved hidden), depth / dip / azimuth / status.
+- Secrets live in Vault (`imdex_api_key`, `imdex_apim_key`, `rjll_api_token`, `sync_key`), read by the service-role-only RPC
+  `sync_secrets()`; `run_sync(mode)` posts to the function with `x-sync-key`. Load/rotate them with
+  `tools/vault_secrets_to_clipboard.ps1` (reads the user env vars, copies the SQL) or `select vault.update_secret(id, '<new>')`.
+  The function writes with the service role: no member login involved. Every run is a `sync_runs` row (Admin tab).
+- Free plan: 500k function invocations/month (we use ~6k), pg_cron + pg_net included. The project pauses after 7 idle days;
+  the cron traffic should count as activity, Supabase emails a week before pausing.
+
+**Laptop, 12:00 and 00:00 (Task Scheduler "mgmdrill contractor sync" -> `tools/contractor_pipeline.cmd`):**
+- Spektra only now: Outlook export (`Desktop/MGM/tools/outlook_export.py`) -> file the daily workbook on SharePoint
+  (`file_daily_reports.py --tidy`) -> `tools/contractor_sync.py --no-rjll` (sheets `YYYY-MM-DD`, JOUR rows 7-10, NUIT rows 12-15,
+  source `spektra`). Still signs in as an admin from private/accounts.json. Log: `private/contractor_sync.log`.
+- Without `--no-rjll` the script also loads RJLL (API first, filed PDFs as fallback) - kept as a manual backup path.
 - Spektra sheet 2026-11-10 has T4 = 9 Nov (their typo); the sheet name is taken as the date.
 
 ## Not connected yet
 - MX Deposit result summary (MICH = HB + F1; I3m-l is microgabbro, not MICH) and samples per hole.
-- Sync login: the job signs in as the first admin in private/accounts.json whose password still works (Rami's and Dan's
+- Laptop Spektra job signs in as the first admin in private/accounts.json whose password still works (Rami's and Dan's
   recorded passwords stopped working 13 Nov; a dedicated sync account would be cleaner).
+- Rotate the HUB-IQ keys (they were pasted in chat on Oct 27 / Nov 10) and update Vault.
 
 ## Known limits
 - Free Supabase projects pause after 7 days without traffic; click Restore in the dashboard.
