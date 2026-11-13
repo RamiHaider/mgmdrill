@@ -3,9 +3,12 @@
 Usage:  python -I tools/contractor_sync.py [--dry-run] [--since YYYY-MM-DD] [--days N]
 Login:  MGMDRILL_EMAIL / MGMDRILL_PASSWORD, or the first admin in private/accounts.json.
 
-Sources (filed on SharePoint by Desktop/MGM/tools/file_daily_reports.py, which reads the Outlook export):
-  RJLL     Joutel .../2026-2027/Timesheets/FSD-NN/YYYYMMDD-QC-56-FSD-NN.pdf  (internal-approved report)
-           one row per shift: hole worked at the end of the shift, De/À of that hole, total = RJLL's "Forés"
+Sources:
+  RJLL     portal API https://portail.rjll.ca/api.php?type=json&token=...&dateFrom=&dateTo=  (token in the user env var
+           RJLL_API_TOKEN, given to Dan by RJLL on 2026-06-30; all reports incl. pending ones, "RJLL pending" in the
+           comment until approved). Fallback when the API is unreachable: the internal-approved PDFs filed on SharePoint
+           at Joutel .../2026-2027/Timesheets/FSD-NN/YYYYMMDD-QC-56-FSD-NN.pdf by Desktop/MGM/tools/file_daily_reports.py.
+           Either way one row per shift: hole worked at the end of the shift, De/À of that hole, total = RJLL's "Forés"
            sum for the shift (casing included, reaming = 0 m, as RJLL counts it). Other holes touched in the
            same shift, "hole done" marks and reaming go in the comment.
   Spektra  .../Timesheets/SPEKTRA-11/1235_Maple Gold_<Mon>_<yyyy>_Drill11.xlsx, one sheet per day named
@@ -55,27 +58,56 @@ def parse_rjll(pdf: Path):
 
 
 def rjll_rows(pdf: Path, rig_id: str, d: date):
-    out = []
-    for shift, lines in parse_rjll(pdf).items():
-        if not lines: continue
-        main = lines[-1]["hole"]
-        mine = [l for l in lines if l["hole"] == main and l["type"] != "Reaming"]
-        start = mine[0]["de"] if mine else None
-        end = mine[-1]["a"] if mine else None
-        total = sum(l["fores"] for l in lines)
-        notes = []
-        for h in dict.fromkeys(l["hole"] for l in lines if l["hole"] != main):
-            hl = [l for l in lines if l["hole"] == h]
-            m = sum(l["fores"] for l in hl)
-            notes.append(f"{h} {hl[0]['de']:g}->{hl[-1]['a']:g} m ({m:g} m{', hole done' if any(l['done'] for l in hl) else ''})")
-        for l in lines:
-            if l["type"] == "Reaming": notes.append(f"reaming {l['hole']} {l['de']:g}->{l['a']:g} m")
-            elif l["type"] == "Casing" and l["hole"] == main: notes.append(f"casing {l['de']:g}->{l['a']:g} m")
-        if any(l["done"] for l in lines if l["hole"] == main): notes.append("hole done")
-        out.append({"rig_id": rig_id, "shift_date": d.isoformat(), "shift": shift, "hole_name": main,
-                    "start_m": r2(start), "end_m": r2(end), "total_m": r2(total),
-                    "comment": "; ".join(notes), "source": "rjll"})
-    return out
+    return [shift_row(lines, rig_id, d, shift, "rjll") for shift, lines in parse_rjll(pdf).items() if lines]
+
+
+def rjll_api_rows(since: date, until: date):
+    """Shift rows from the RJLL portal API. Lines with 0 m drilled but a depth range are reaming/conditioning."""
+    import urllib.request
+    tok = os.environ.get("RJLL_API_TOKEN")
+    if not tok: raise RuntimeError("RJLL_API_TOKEN not set")
+    url = f"https://portail.rjll.ca/api.php?type=json&token={tok}&dateFrom={since.isoformat()}&dateTo={until.isoformat()}"
+    data = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=120).read())
+    out, n = [], 0
+    for c in data.get("contrats", []):
+        for rep in c.get("rapports", []):
+            n += 1
+            rig = rep["foreuse"].replace("-", "").upper()
+            lines = []
+            for p in sorted(rep.get("plans", []), key=lambda p: p["id"]):
+                try: de, a, f = float(p["profondeur_from"] or 0), float(p["profondeur_to"] or 0), float(p["fores"] or 0)
+                except ValueError: continue
+                if not p.get("trou"): continue
+                typ = "Casing" if p.get("format") == "NW" else ("Reaming" if f == 0 and a > de else "Drilling")
+                lines.append({"shift": "day" if p["shift"] == "jour" else "night", "hole": p["trou"].strip().upper(), "type": typ,
+                              "de": de, "a": a, "fores": f, "done": p.get("bool_trou_termine") == "on"})
+            pend = rep["statut"] not in ("approved", "internalapproved")
+            for shift in ("day", "night"):
+                sl = [l for l in lines if l["shift"] == shift]
+                if not sl: continue
+                row = shift_row(sl, rig, date.fromisoformat(rep["date"]), shift, "rjll")
+                if pend: row["comment"] = ("RJLL pending; " + row["comment"]).rstrip("; ")
+                out.append(row)
+    return out, n
+
+
+def shift_row(lines, rig_id, d, shift, source):
+    main = lines[-1]["hole"]
+    mine = [l for l in lines if l["hole"] == main and l["type"] != "Reaming"]
+    start = mine[0]["de"] if mine else None
+    end = mine[-1]["a"] if mine else None
+    total = sum(l["fores"] for l in lines)
+    notes = []
+    for h in dict.fromkeys(l["hole"] for l in lines if l["hole"] != main):
+        hl = [l for l in lines if l["hole"] == h]
+        m = sum(l["fores"] for l in hl)
+        notes.append(f"{h} {hl[0]['de']:g}->{hl[-1]['a']:g} m ({m:g} m{', hole done' if any(l['done'] for l in hl) else ''})")
+    for l in lines:
+        if l["type"] == "Reaming": notes.append(f"reaming {l['hole']} {l['de']:g}->{l['a']:g} m")
+        elif l["type"] == "Casing" and l["hole"] == main: notes.append(f"casing {l['de']:g}->{l['a']:g} m")
+    if any(l["done"] for l in lines if l["hole"] == main): notes.append("hole done")
+    return {"rig_id": rig_id, "shift_date": d.isoformat(), "shift": shift, "hole_name": main,
+            "start_m": r2(start), "end_m": r2(end), "total_m": r2(total), "comment": "; ".join(notes), "source": source}
 
 
 # ---------------- Spektra ----------------
@@ -115,11 +147,14 @@ def spektra_rows(xlsx: Path, since: date):
 
 # ---------------- Supabase ----------------
 def login():
-    if not os.environ.get("MGMDRILL_EMAIL"):
-        acc = json.loads((Path(__file__).parent.parent / "private" / "accounts.json").read_text(encoding="utf-8"))
-        email, v = next((e, v) for e, v in acc.items() if v.get("role") == "admin")
-        os.environ["MGMDRILL_EMAIL"], os.environ["MGMDRILL_PASSWORD"] = email, v["password"]
-    return L.sign_in()
+    """MGMDRILL_EMAIL/PASSWORD, else the first admin in private/accounts.json whose password still works."""
+    if os.environ.get("MGMDRILL_EMAIL"): return L.sign_in()
+    acc = json.loads((Path(__file__).parent.parent / "private" / "accounts.json").read_text(encoding="utf-8"))
+    for email, v in acc.items():
+        if v.get("role") != "admin": continue
+        st, body = L.req("/auth/v1/token?grant_type=password", {"email": email, "password": v["password"]})
+        if st == 200: return json.loads(body)["access_token"]
+    sys.exit("no admin login in private/accounts.json works any more (passwords changed on the site?)")
 
 
 def get(path, token):
@@ -140,17 +175,24 @@ def main():
     ap.add_argument("--days", type=int, default=45)
     a = ap.parse_args()
     since = date.fromisoformat(a.since) if a.since else date.today() - timedelta(days=a.days)
-    if not TS.exists(): sys.exit(f"SharePoint folder not synced: {TS}")
+    if not TS.exists(): problems_pre = [f"SharePoint folder not synced: {TS}"]
+    else: problems_pre = []
 
-    rows, problems = [], []
-    for pdf in sorted(TS.glob("FSD-*/*.pdf")):
-        m = RJLL_PDF.match(pdf.name)
-        if not m: continue
-        d = datetime.strptime(m.group(1), "%Y%m%d").date()
-        if d < since: continue
-        try: rows += rjll_rows(pdf, m.group(2).replace("-", "").upper(), d)
-        except Exception as e: problems.append(f"{pdf.name}: {e}")
-    for xlsx in sorted((TS / "SPEKTRA-11").glob("*.xlsx")):
+    rows, problems = [], list(problems_pre)
+    try:
+        api_rows, n_rep = rjll_api_rows(since, date.today())
+        rows += api_rows
+        print(f"RJLL API: {n_rep} reports, {len(api_rows)} shifts")
+    except Exception as e:
+        problems.append(f"RJLL API failed ({e}); used the filed PDFs instead")
+        for pdf in sorted(TS.glob("FSD-*/*.pdf")):
+            m = RJLL_PDF.match(pdf.name)
+            if not m: continue
+            d = datetime.strptime(m.group(1), "%Y%m%d").date()
+            if d < since: continue
+            try: rows += rjll_rows(pdf, m.group(2).replace("-", "").upper(), d)
+            except Exception as e: problems.append(f"{pdf.name}: {e}")
+    for xlsx in (sorted((TS / "SPEKTRA-11").glob("*.xlsx")) if TS.exists() else []):
         if not SPEKTRA_XLSX.match(xlsx.name): continue
         try:
             r, c = spektra_rows(xlsx, since); rows += r; problems += c

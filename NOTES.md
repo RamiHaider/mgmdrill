@@ -32,16 +32,21 @@ Live: https://mgmdrill.com · Database: Supabase project `mgmdrill` (ref htmiinl
   runs when Rami is logged on, catches up if missed): Outlook export (`Desktop/MGM/tools/outlook_export.py`) →
   file the RJLL PDFs / Spektra workbook on SharePoint (`file_daily_reports.py --tidy`) → `tools/contractor_sync.py`.
   Log: `private/contractor_sync.log`; each run also writes a `sync_runs` row (Admin tab).
-- `contractor_sync.py` parses the internal-approved RJLL time report PDFs (one row per shift: hole at end of shift,
-  De/À, total = RJLL "Forés" incl. casing, reaming = 0 m; other holes / hole done / reaming in the comment) and the
+- RJLL comes from their portal API (`https://portail.rjll.ca/api.php?type=json&token=...&dateFrom=&dateTo=`, JSON or
+  XML, token given to Dan by RJLL's programmer on 30 Jun 2026, kept in the user env var `RJLL_API_TOKEN`, never in the
+  repo). All reports are loaded, pending ones carry "RJLL pending" in the comment until approved; the filed PDFs are only
+  the fallback when the API is down. The API also carries hours per activity, materials left in hole, equipment and gyro
+  shots per report (not used yet; consumables could come from it).
+- `contractor_sync.py` builds one row per shift (hole at end of shift, from/to, total = RJLL "Forés" incl. casing,
+  reaming = 0 m; other holes / hole done / reaming in the comment) from the API (or PDFs) and from the
   Spektra daily sheets (JOUR rows 7-10, NUIT rows 12-15). Inserts rows with source `rjll` / `spektra`, signed in as
   an admin (private/accounts.json); unchanged shifts are skipped, so it is safe to re-run. `--dry-run`, `--since`.
 - Spektra sheet 2026-11-10 has T4 = 9 Nov (their typo); the sheet name is taken as the date.
 
 ## Not connected yet
 - MX Deposit result summary (MICH = HB + F1; I3m-l is microgabbro, not MICH) and samples per hole.
-- RJLL has a portal (portail.rjll.ca, time reports approved there); if it has an API the PDF parsing can be swapped
-  for it, same rows.
+- Sync login: the job signs in as the first admin in private/accounts.json whose password still works (Rami's and Dan's
+  recorded passwords stopped working 13 Nov; a dedicated sync account would be cleaner).
 
 ## Known limits
 - Free Supabase projects pause after 7 days without traffic; click Restore in the dashboard.
