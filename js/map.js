@@ -5,19 +5,17 @@
    - Planned traces: straight line from the collar along the azimuth, horizontal length = depth x cos(dip).
    - Database layers (map_layers: boundary / points / lines) are loaded once and their Leaflet layers
      are built once and reused (the historic layer has ~3,500 points; it uses a canvas renderer).
-   - Custom layer checkboxes (persisted in localStorage "mgmdrill.map.layers"), stat tiles, search,
+   - One checkbox per hole status, same six on by default as the Holes chips, plus layer checkboxes (persisted in localStorage "mgmdrill.map.layers.v2"), stat tiles, search,
      fit buttons, and a legend. render() is idempotent: the page shell and map are created once,
      collars are rebuilt only when the hole data changes. focus(holeId) pans to a hole and opens its popup. */
 (() => {
 "use strict";
 const { $, esc } = App;
-const LS_KEY = "mgmdrill.map.layers", LABEL_ZOOM = 15;
-const GROUPS = [
-  { key: "plan",   label: "Planned / Spotted / Cut", statuses: ["Permit Pending", "Planned", "Flagged", "Cut", "Spotted"], color: "Planned" },
-  { key: "prog",   label: "In Progress", statuses: ["In Progress"], color: "In Progress" },
-  { key: "done",   label: "Complete",    statuses: ["Complete"],    color: "Complete" },
-  { key: "cancel", label: "Cancelled",   statuses: ["Cancelled"],   color: "Cancelled" },
-];
+const LS_KEY = "mgmdrill.map.layers.v2", LABEL_ZOOM = 15;
+// one map layer per hole status; default-on set matches the Holes page chips
+const GROUPS = App.STATUSES.map(s => ({ key: s, label: s, statuses: [s], color: s }));
+const DEFAULT_ON = new Set(["Permit Pending", "Planned", "Cut", "Spotted", "In Progress", "Complete"]);
+const onDflt = g => DEFAULT_ON.has(g.key);
 const groupOf = s => (GROUPS.find(g => g.statuses.includes(s)) || GROUPS[0]).key;
 
 /* ---------- NAD83 UTM 17N -> WGS84 lat/lon (inverse Transverse Mercator, Snyder 1987) ---------- */
@@ -160,13 +158,13 @@ function show(layer, on){ if (on && !map.hasLayer(layer)) layer.addTo(map); else
 function applyVisibility(){
   if (!map) return;
   const labels = map.getZoom() >= LABEL_ZOOM, traces = isOn("traces");
-  for (const g of GROUPS) { const on = isOn("g:" + g.key), lg = groups[g.key]; show(lg.traces, on && traces); show(lg.collars, on); show(lg.labels, on && labels); }
+  for (const g of GROUPS) { const on = isOn("g:" + g.key, onDflt(g)), lg = groups[g.key]; show(lg.traces, on && traces); show(lg.collars, on); show(lg.labels, on && labels); }
   for (const { row, layer } of Object.values(db).sort((a, b) => a.row.sort - b.row.sort)) show(layer, isOn("db:" + row.id, row.default_on !== false));
 }
 function renderLyr(){
   const holes = holesWithXY(), cnt = k => holes.filter(h => groupOf(h.status) === k).length;
   const box = (k, label, on, dot) => `<label class="lyr"><input type="checkbox" data-k="${esc(k)}"${on ? " checked" : ""}>${dot ? `<span class="chip sm" style="--c:${dot}"><i></i>${label}</span>` : label}</label>`;
-  $("#mLyr").innerHTML = GROUPS.map(g => box("g:" + g.key, `${esc(g.label)} (${cnt(g.key)})`, isOn("g:" + g.key), App.STATUS_HEX[g.color])).join("")
+  $("#mLyr").innerHTML = GROUPS.filter(g => cnt(g.key)).map(g => box("g:" + g.key, `${esc(g.label)} (${cnt(g.key)})`, isOn("g:" + g.key, onDflt(g)), App.STATUS_HEX[g.color])).join("")
     + box("traces", "Planned traces", isOn("traces"))
     + Object.values(db).sort((a, b) => a.row.sort - b.row.sort).map(({ row }) => box("db:" + row.id, esc(row.name), isOn("db:" + row.id, row.default_on !== false))).join("");
 }
@@ -214,7 +212,7 @@ function focus(holeId){
   const h = App.hole(holeId);
   if (!hasXY(h)) return App.toast("That hole has no coordinates");
   const g = groupOf(h.status);
-  if (!isOn("g:" + g)) { vis["g:" + g] = true; saveVis(); renderLyr(); applyVisibility(); }
+  if (!isOn("g:" + g, DEFAULT_ON.has(g))) { vis["g:" + g] = true; saveVis(); renderLyr(); applyVisibility(); }
   const ll = utmToLatLng(Number(h.easting), Number(h.northing));
   map.invalidateSize(); map.setView(ll, 16);
   L.popup({ offset: [0, -4] }).setLatLng(ll).setContent(popupHtml(h)).openOn(map);
