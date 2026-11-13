@@ -318,3 +318,7 @@ table.dense td.wrap-text.edit{cursor:text}
 .ts tr.latest + tr td{border-top:0}
 .report .geo td{white-space:normal}
 .report .geo .edit-field{display:inline-block;min-width:240px;max-width:48%;vertical-align:middle;margin-right:8px}
+/* Report snapshot (Copy as image): plain fields, no editing chrome */
+.report.snap{border-radius:0;box-shadow:none}
+.report.snap .edit-field{border-color:transparent}
+.report.snap .edit-field:empty::before{content:"–";color:var(--muted)}

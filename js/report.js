@@ -31,7 +31,7 @@ function render(){
       <div class="row"><button class="btn sm" id="rPrev">‹</button><input type="date" id="rDate" value="${esc(state.date)}" style="width:auto"><button class="btn sm" id="rNext">›</button></div>
       <select id="rPick" style="width:auto"><option value="">Saved reports…</option>${App.data.reports.slice(0, 60).map(x => `<option value="${x.report_date}">${App.fmt.dl(x.report_date)}</option>`).join("")}</select>
       ${!r && App.canEdit ? `<button class="btn primary sm" id="rNew">Create report for ${App.fmt.d(state.date)}</button>` : ""}
-      <span class="sep"></span><button class="btn sm" id="rPrint">Print / PDF</button><button class="btn sm" id="rCopy">Copy as text</button><button class="btn sm" id="rCopyHtml">Copy for email</button>
+      <span class="sep"></span><button class="btn sm" id="rPrint">Print / PDF</button><button class="btn sm" id="rCopy">Copy as text</button><button class="btn sm" id="rCopyHtml">Copy for email</button><button class="btn sm" id="rCopyPng">Copy as image</button>
     </div>
     ${!r ? `<div class="msg">No report saved for ${App.fmt.dl(state.date)}. The numbers below are computed anyway; create the report to add geology, RC, other notes and weather.</div>` : ""}
     <article class="report" id="rBody">
@@ -54,6 +54,7 @@ function render(){
   $("#rPrint").onclick = () => window.print();
   $("#rCopy").onclick = () => navigator.clipboard.writeText(asText()).then(() => App.toast("Copied as text")).catch(App.err);
   $("#rCopyHtml").onclick = () => { const html = $("#rBody").outerHTML.replace(/contenteditable="plaintext-only"/g, ""); const item = new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([asText()], { type: "text/plain" }) }); navigator.clipboard.write([item]).then(() => App.toast("Copied, paste into Outlook")).catch(App.err); };
+  $("#rCopyPng").onclick = () => copyPng($("#rCopyPng"));
   const nw = $("#rNew"); if (nw) nw.onclick = async () => { try {
     const prev = App.data.reports.find(x => x.report_date < state.date); const prevDaily = App.data.rigDaily.filter(x => x.report_date === prev?.report_date);
     await App.insert("daily_reports", { report_date: state.date, production_through: App.addDays(state.date, -1), to_line: prev?.to_line ?? undefined, from_line: prev?.from_line ?? undefined });
@@ -96,3 +97,23 @@ function asText(){
 }
 App.view("report", { render });
 })();
+
+// Snapshot the report as a PNG and put it on the clipboard (falls back to a download where the browser cannot write images).
+async function copyPng(btn){
+  if (typeof html2canvas !== "function") return App.toast("Image tool did not load, refresh the page");
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "Rendering…";
+  try {
+    const canvas = await html2canvas($("#rBody"), { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+      onclone: doc => { doc.documentElement.setAttribute("data-theme", "light"); const b = doc.getElementById("rBody"); b.classList.add("snap"); b.querySelectorAll(".noprint").forEach(x => x.remove());
+        const dots = $("#rBody").querySelectorAll(".chip i"); b.querySelectorAll(".chip i").forEach((d, i) => { d.style.background = getComputedStyle(dots[i]).backgroundColor; }); } });
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    const name = `MGM_Daily_Report_${state.date}.png`;
+    if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      App.toast("Image copied, paste it into your email");
+    } else {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      App.toast("Image downloaded (this browser cannot copy images)");
+    }
+  } catch (e) { App.err(e); } finally { btn.disabled = false; btn.textContent = label; }
+}
