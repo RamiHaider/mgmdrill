@@ -189,17 +189,17 @@ th.sticky-col{z-index:3;background:var(--surface-2)}
 .report .rhead{display:flex;align-items:flex-start;gap:14px;border-bottom:3px solid var(--gold);padding-bottom:10px}
 .report .rhead img{width:46px;height:46px}
 .report .rhead .t{flex:1}
-.report .rhead .t b{font-size:18px;letter-spacing:.06em;text-transform:uppercase}
-.report .rhead .t div{color:var(--muted);font-size:12.5px}
-.report .meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
-.report .meta dt{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em}
+.report .rhead .t b{font-size:19px;letter-spacing:.06em;text-transform:uppercase}
+.report .rhead .t div{color:var(--muted);font-size:13.5px}
+.report .meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:14px}
+.report .meta dt{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:.05em}
 .report .meta dd{margin:0}
-.report h3{border-left:4px solid var(--gold);padding-left:8px;color:var(--fg);font-size:13px}
+.report h3{border-left:4px solid var(--gold);padding-left:8px;color:var(--fg);font-size:14px}
 .report .rig{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 14px;position:relative}
 .report .rig .ttl{grid-column:1/-1;font-weight:700;display:flex;align-items:center;gap:8px}
 .report .rig .ttl i{width:10px;height:10px;border-radius:50%;display:inline-block}
-.report .rig .f{display:flex;flex-direction:column;gap:1px;font-size:13px}
-.report .rig .f b{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.report .rig .f{display:flex;flex-direction:column;gap:1px;font-size:14px}
+.report .rig .f b{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .report .rig .f.full{grid-column:1/-1}
 .report .edit-field{background:var(--edit);border:1px dashed var(--edit-line);border-radius:4px;padding:3px 6px;min-height:24px;white-space:pre-wrap}
 .report .edit-field:empty::before{content:"Click to enter";color:var(--muted-2)}
@@ -207,9 +207,9 @@ th.sticky-col{z-index:3;background:var(--surface-2)}
 .report .modhd h3{flex:1}
 .report .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
 .report .kpi{border:1px solid var(--line);border-radius:6px;padding:6px 10px}
-.report .kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
-.report .kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.report .foot{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+.report .kpi b{display:block;font-size:21px;font-variant-numeric:tabular-nums}
+.report .kpi span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.report .foot{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
 @media print{
   body{background:#fff;color:#000}
   .top,.pagehead,.toolbar,.drawer,.scrim,.noprint,#toast{display:none!important}
@@ -303,8 +303,8 @@ table.holes tr.newrow input,table.holes tr.newrow select{padding:2px 5px;font-si
 .vibetable tbody tr:hover td{filter:brightness(1.05)}
 .tile.vibe-Mortgage{border-color:#6250d6} .tile.vibe-Excellent,.tile.vibe-Good{border-color:var(--good)} .tile.vibe-Ok{border-color:#9ccc3c} .tile.vibe-Bad{border-color:var(--bad)}
 .vibe.Ok i{background:#9ccc3c}
-.report .geo td{background:var(--surface-2);font-size:12.5px}
-.report .geo b{color:var(--muted);text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;margin-right:6px}
+.report .geo td{background:var(--surface-2);font-size:13.5px}
+.report .geo b{color:var(--muted);text-transform:uppercase;font-size:11.5px;letter-spacing:.05em;margin-right:6px}
 table.dense td.wrap-text{max-width:260px}
 table.dense td.wrap-text .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 table.dense td.wrap-text.edit{cursor:text}
@@ -322,3 +322,9 @@ table.dense td.wrap-text.edit{cursor:text}
 .report.snap{border-radius:0;box-shadow:none}
 .report.snap .edit-field{border-color:transparent}
 .report.snap .edit-field:empty::before{content:"–";color:var(--muted)}
+
+/* daily report: +1px on shared table text (readability, 13 Nov) */
+.report table{font-size:14px}
+.report th{font-size:12.5px}
+.report .small{font-size:13px}
+.report .chip.sm{font-size:12.5px}
